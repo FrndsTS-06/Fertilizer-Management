@@ -1,0 +1,158 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+  CREDIT
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(STAFF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sales     Sale[]
+}
+
+model Customer {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?  @unique
+  village     String?
+  address     String?
+  creditLimit Float    @default(0.0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sales       Sale[]
+  payments    Payment[]
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  products    Product[]
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  name        String
+  hsnCode     String?
+  brand       String?
+  unit        String      // e.g. "50kg Bag", "Liter", "Kg"
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  price       Float
+  costPrice   Float
+  stockQty    Float       @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  batches     InventoryBatch[]
+  saleItems   SaleItem[]
+  purchaseItems PurchaseItem[]
+}
+
+model InventoryBatch {
+  id          String    @id @default(uuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  batchNumber String
+  quantity    Float
+  mfgDate     DateTime?
+  expDate     DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Supplier {
+  id          String     @id @default(uuid())
+  name        String
+  contact     String?
+  email       String?
+  address     String?
+  purchases   Purchase[]
+  createdAt   DateTime   @default(now())
+}
+
+model Purchase {
+  id          String         @id @default(uuid())
+  supplierId  String
+  supplier    Supplier       @relation(fields: [supplierId], references: [id])
+  invoiceNo   String         @unique
+  totalAmount Float
+  paidAmount  Float          @default(0.0)
+  items       PurchaseItem[]
+  createdAt   DateTime       @default(now())
+}
+
+model PurchaseItem {
+  id         String   @id @default(uuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  quantity   Float
+  unitCost   Float
+  subtotal   Float
+}
+
+model Sale {
+  id          String        @id @default(uuid())
+  invoiceNo   String        @unique
+  customerId  String?
+  customer    Customer?     @relation(fields: [customerId], references: [id])
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  totalAmount Float
+  discount    Float         @default(0.0)
+  netAmount   Float
+  paidAmount  Float         @default(0.0)
+  paymentStatus PaymentStatus @default(COMPLETED)
+  items       SaleItem[]
+  payments    Payment[]
+  createdAt   DateTime      @default(now())
+}
+
+model SaleItem {
+  id        String   @id @default(uuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Float
+  unitPrice Float
+  subtotal  Float
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  saleId     String?
+  sale       Sale?         @relation(fields: [saleId], references: [id])
+  customerId String?
+  customer   Customer?     @relation(fields: [customerId], references: [id])
+  amount     Float
+  method     PaymentMethod @default(CASH)
+  reference  String?
+  createdAt  DateTime      @default(now())
+}
