@@ -1,4 +1,4 @@
-const { products, computeStatus } = require('./products.data');
+const { products, movements, computeStatus } = require('./products.data');
 
 // GET /api/products
 exports.getAllProducts = (req, res) => {
@@ -85,7 +85,7 @@ exports.createProduct = (req, res) => {
       return res.status(400).json({ success: false, error: `Product code ${newCode} already exists` });
     }
 
-    const stockQty = Number(initialStock) || 0;
+    const stockQty = Number(initialStock !== undefined ? initialStock : (req.body.stock !== undefined ? req.body.stock : (req.body.stockQty || 0))) || 0;
     const threshold = Number(minThreshold) || 10;
 
     const newProduct = {
@@ -107,6 +107,25 @@ exports.createProduct = (req, res) => {
     };
 
     products.push(newProduct);
+
+    // Record stock movement if product created with initial stock
+    if (stockQty > 0) {
+      movements.unshift({
+        id: `MOV${String(movements.length + 1001)}`,
+        productId: newProduct.id,
+        productName: newProduct.name,
+        productCode: newProduct.code,
+        type: 'PURCHASE',
+        action: 'ADDED',
+        changeQty: stockQty,
+        previousStock: 0,
+        newStock: stockQty,
+        unit: newProduct.unit,
+        reason: 'Initial Product Stock Inward',
+        reference: `ADD-${newProduct.code}`,
+        createdAt: new Date(),
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -141,6 +160,31 @@ exports.updateProduct = (req, res) => {
       description,
     } = req.body;
 
+    let updatedStock = existing.stock;
+    const rawStock = req.body.stock !== undefined ? req.body.stock : req.body.initialStock;
+    if (rawStock !== undefined) {
+      const newStockVal = Number(rawStock);
+      if (!isNaN(newStockVal) && newStockVal !== existing.stock) {
+        const diff = newStockVal - existing.stock;
+        updatedStock = newStockVal;
+        movements.unshift({
+          id: `MOV${String(movements.length + 1001)}`,
+          productId: existing.id,
+          productName: name !== undefined ? name : existing.name,
+          productCode: existing.code,
+          type: diff > 0 ? 'PURCHASE' : 'ADJUSTMENT',
+          action: diff > 0 ? 'ADDED' : 'UPDATE',
+          changeQty: diff,
+          previousStock: existing.stock,
+          newStock: updatedStock,
+          unit: unit !== undefined ? unit : existing.unit,
+          reason: diff > 0 ? 'Stock Inward Restock' : 'Stock Quantity Audit',
+          reference: `UPD-${existing.code}`,
+          createdAt: new Date(),
+        });
+      }
+    }
+
     const updatedThreshold = minThreshold !== undefined ? Number(minThreshold) : existing.minThreshold;
 
     products[index] = {
@@ -149,12 +193,13 @@ exports.updateProduct = (req, res) => {
       category: category !== undefined ? category : existing.category,
       brand: brand !== undefined ? brand : existing.brand,
       unit: unit !== undefined ? unit : existing.unit,
+      stock: updatedStock,
       costPrice: costPrice !== undefined ? Number(costPrice) : existing.costPrice,
       price: price !== undefined ? Number(price) : existing.price,
       minThreshold: updatedThreshold,
       photo: photo !== undefined ? photo : existing.photo,
       description: description !== undefined ? description : existing.description,
-      status: computeStatus(existing.stock, updatedThreshold),
+      status: computeStatus(updatedStock, updatedThreshold),
       updatedAt: new Date(),
     };
 
@@ -167,3 +212,43 @@ exports.updateProduct = (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// DELETE /api/products/:id
+exports.deleteProduct = (req, res) => {
+  try {
+    const { id } = req.params;
+    const index = products.findIndex(p => p.id === id || p.code === id);
+
+    if (index === -1) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+
+    const [deleted] = products.splice(index, 1);
+    res.json({
+      success: true,
+      message: `Product ${deleted.name} (${deleted.code}) removed successfully`,
+      data: deleted,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// DELETE /api/products
+exports.clearAllProducts = (req, res) => {
+  try {
+    const { movements } = require('./products.data');
+    products.length = 0;
+    if (movements) movements.length = 0;
+
+    res.json({
+      success: true,
+      message: 'All products and stock inventory items have been cleared',
+      count: 0,
+      data: [],
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+

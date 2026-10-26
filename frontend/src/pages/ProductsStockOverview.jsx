@@ -33,6 +33,8 @@ export default function ProductsStockOverview({ subItem = 'all-products', onNavi
   const [isStockAdjustmentOpen, setIsStockAdjustmentOpen] = useState(false);
   const [adjustmentTargetProduct, setAdjustmentTargetProduct] = useState(null);
   const [isMovementHistoryDrawerOpen, setIsMovementHistoryDrawerOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Sync subItem prop from sidebar navigation
   useEffect(() => {
@@ -119,6 +121,28 @@ export default function ProductsStockOverview({ subItem = 'all-products', onNavi
   const handleApplyAdjustment = async (adjData) => {
     await productsStockService.createStockAdjustment(adjData);
     await loadData();
+  };
+
+  const handleDeleteProduct = (prod) => {
+    setProductToDelete(prod);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    setIsDeleting(true);
+    try {
+      await productsStockService.deleteProduct(productToDelete.id || productToDelete.code);
+      setProductToDelete(null);
+      if (selectedProductDetails && (selectedProductDetails.id === productToDelete.id || selectedProductDetails.code === productToDelete.code)) {
+        setIsDetailsDrawerOpen(false);
+        setSelectedProductDetails(null);
+      }
+      await loadData();
+    } catch (err) {
+      console.error('Failed to delete product:', err);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -254,12 +278,13 @@ export default function ProductsStockOverview({ subItem = 'all-products', onNavi
         totalFound={products.length}
       />
 
-      {/* 6 & 7. Product Table with View Details and Update Stock */}
+      {/* 6 & 7. Product Table with View Details, Update Stock, and Delete */}
       <ProductTable
         products={products}
         onViewDetails={handleOpenDetails}
         onUpdateStock={handleOpenAdjustment}
         onEditProduct={handleOpenEditProduct}
+        onDeleteProduct={handleDeleteProduct}
       />
 
       {/* 8. Stock Movement History Drawer */}
@@ -280,6 +305,7 @@ export default function ProductsStockOverview({ subItem = 'all-products', onNavi
         onOpenEdit={handleOpenEditProduct}
         onOpenAdjust={handleOpenAdjustment}
         onOpenHistory={() => setIsMovementHistoryDrawerOpen(true)}
+        onDeleteProduct={handleDeleteProduct}
       />
 
       {/* Separate Product Form (Add / Edit) */}
@@ -298,6 +324,93 @@ export default function ProductsStockOverview({ subItem = 'all-products', onNavi
         onClose={() => setIsStockAdjustmentOpen(false)}
         onSubmit={handleApplyAdjustment}
       />
+
+      {/* Delete Product Confirmation Modal */}
+      {productToDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(11, 31, 58, 0.65)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 120,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '460px',
+            padding: '1.75rem',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+            border: '1px solid #CBD5E1',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: '#FEE2E2',
+              color: '#DC2626',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.75rem',
+              margin: '0 auto 1rem auto',
+            }}>
+              🗑️
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0B1F3A', margin: '0 0 0.5rem 0' }}>
+              Delete Product?
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: '#64748B', margin: '0 0 1.5rem 0', lineHeight: 1.5 }}>
+              Are you sure you want to remove <strong style={{ color: '#0B1F3A' }}>{productToDelete.name}</strong> ({productToDelete.code})? This will permanently delete the product and its stock record.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setProductToDelete(null)}
+                disabled={isDeleting}
+                style={{
+                  padding: '0.65rem 1.25rem',
+                  backgroundColor: '#FFFFFF',
+                  color: '#475569',
+                  border: '1.5px solid #CBD5E1',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                style={{
+                  padding: '0.65rem 1.35rem',
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)',
+                }}
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, Delete Product'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

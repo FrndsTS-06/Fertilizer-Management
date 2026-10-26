@@ -165,10 +165,22 @@ export default function SidebarMenu({
   onSelectSubItem,
   isCollapsed = false,
   onToggleCollapse,
+  isMobile = false,
+  isOpen = false,
+  onClose,
 }) {
   const [hoveredItem, setHoveredItem] = useState(null);
 
-  const sidebarWidth = isCollapsed ? '76px' : '285px';
+  const sidebarWidth = isMobile ? '285px' : isCollapsed ? '76px' : '285px';
+
+  const handleItemClick = (sectionId) => {
+    if (onSelectSubItem) {
+      onSelectSubItem(sectionId, '');
+    }
+    if (isMobile && onClose) {
+      onClose();
+    }
+  };
 
   return (
     <aside
@@ -176,156 +188,119 @@ export default function SidebarMenu({
       style={{
         width: sidebarWidth,
         minWidth: sidebarWidth,
-        maxWidth: sidebarWidth,
+        maxWidth: isMobile ? '85vw' : sidebarWidth,
         backgroundColor: '#0B1F3A', // Exact FTS Navy Blue
         color: '#F8FAFC',
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
+        height: isMobile ? '100vh' : 'calc(100vh - 72px)',
+        position: 'fixed',
+        top: isMobile ? 0 : '72px',
+        left: 0,
+        bottom: 0,
         overflowY: 'auto',
         overflowX: 'hidden',
         borderRight: '1px solid #1E293B',
-        boxShadow: '4px 0 20px rgba(11, 31, 58, 0.25)',
+        boxShadow: isMobile && isOpen
+          ? '8px 0 30px rgba(0, 0, 0, 0.5)'
+          : '4px 0 20px rgba(11, 31, 58, 0.25)',
         userSelect: 'none',
-        transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        zIndex: 50,
+        transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+        transition: isMobile
+          ? 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)'
+          : 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        zIndex: isMobile ? 60 : 40,
       }}
     >
-      {/* Brand Header with Menu Symbol */}
-      <div style={{
-        padding: isCollapsed ? '1.25rem 0.5rem' : '1.25rem 1.1rem',
-        borderBottom: '1px solid #1E293B',
-        background: 'linear-gradient(180deg, rgba(37, 99, 235, 0.14) 0%, rgba(11, 31, 58, 0) 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: isCollapsed ? 'center' : 'space-between',
-        gap: '0.5rem',
-      }}>
-        {/* Brand Identity */}
-        {!isCollapsed && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-            {/* Logo Badge */}
-            <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '9px',
-              backgroundColor: '#2563EB', // Electric Blue
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.25rem',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
-              flexShrink: 0,
-            }}>
-              🌾
-            </div>
-            <div style={{ overflow: 'hidden' }}>
-              <h2 style={{
-                fontSize: '1.05rem',
-                fontWeight: '900',
-                color: '#FFFFFF',
-                letterSpacing: '-0.02em',
-                margin: 0,
-                lineHeight: '1.2',
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
-                overflow: 'hidden',
-              }}>
-                Fertilizer Shop
-              </h2>
-              <p style={{
-                fontSize: '0.68rem',
-                color: '#94A3B8',
-                fontWeight: '600',
-                margin: '2px 0 0 0',
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                whiteSpace: 'nowrap',
-              }}>
-                Management System
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Menu Symbol (Interactive Hamburger Button) */}
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          title={isCollapsed ? "Expand Menu" : "Collapse Menu (Menu Symbol)"}
-          aria-label="Toggle Menu"
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(30, 41, 59, 0.85)',
-            border: '1px solid #334155',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#38BDF8',
-            cursor: 'pointer',
-            flexShrink: 0,
-            boxShadow: '0 2px 5px rgba(0,0,0,0.25)',
-            transition: 'all 0.15s ease',
-            padding: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#2563EB';
-            e.currentTarget.style.borderColor = '#60A5FA';
-            e.currentTarget.style.color = '#FFFFFF';
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(30, 41, 59, 0.85)';
-            e.currentTarget.style.borderColor = '#334155';
-            e.currentTarget.style.color = '#38BDF8';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-        >
-          <MenuIcon size={19} />
-        </button>
-      </div>
-
-      {/* Navigation Header Label (Expanded Only) */}
-      {!isCollapsed && (
+      {/* Mobile Drawer Header with Close Button */}
+      {isMobile && (
         <div style={{
-          padding: '1.1rem 1.1rem 0.4rem 1.1rem',
+          padding: '1rem',
+          borderBottom: '1px solid #1E293B',
+          background: 'linear-gradient(180deg, rgba(37, 99, 235, 0.14) 0%, rgba(11, 31, 58, 0) 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}>
-          <span style={{
-            fontSize: '0.68rem',
-            fontWeight: '800',
-            color: '#64748B',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-          }}>
-            <MenuIcon size={12} color="#64748B" />
-            Navigation Menu
-          </span>
-          <span style={{
-            fontSize: '0.65rem',
-            color: '#38BDF8',
-            background: 'rgba(56, 189, 248, 0.12)',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontWeight: '700',
-          }}>
-            5 Pages
-          </span>
+          <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#FFFFFF' }}>Navigation Menu</span>
+          <button
+            type="button"
+            onClick={onClose}
+            title="Close Menu"
+            aria-label="Close Menu"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(30, 41, 59, 0.85)',
+              border: '1px solid #334155',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#38BDF8',
+              cursor: 'pointer',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Menu Bar Icon (Below Header on Left Side) */}
+      {!isMobile && (
+        <div style={{
+          padding: isCollapsed ? '0.85rem 0.5rem' : '0.85rem 1rem',
+          borderBottom: '1px solid #1E293B',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isCollapsed ? 'center' : 'flex-start',
+          flexShrink: 0,
+        }}>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title={isCollapsed ? "Expand Menu" : "Collapse Menu"}
+            aria-label="Toggle Menu Bar"
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(30, 41, 59, 0.85)',
+              border: '1px solid #334155',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#38BDF8',
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '0 2px 5px rgba(0,0,0,0.25)',
+              transition: 'all 0.15s ease',
+              padding: 0,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#2563EB';
+              e.currentTarget.style.borderColor = '#60A5FA';
+              e.currentTarget.style.color = '#FFFFFF';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(30, 41, 59, 0.85)';
+              e.currentTarget.style.borderColor = '#334155';
+              e.currentTarget.style.color = '#38BDF8';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <MenuIcon size={20} />
+          </button>
         </div>
       )}
 
       {/* Direct Page Navigation Menu with Symbols */}
       <nav style={{
-        padding: isCollapsed ? '0.75rem 0.4rem 1rem 0.4rem' : '0.5rem 0.75rem 1rem 0.75rem',
+        padding: isCollapsed ? '0.75rem 0.4rem 1rem 0.4rem' : '0.75rem 0.75rem 1rem 0.75rem',
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
@@ -344,15 +319,15 @@ export default function SidebarMenu({
             >
               <button
                 type="button"
-                onClick={() => onSelectSubItem && onSelectSubItem(section.id, '')}
-                title={isCollapsed ? `${section.number}. ${section.title}` : undefined}
+                onClick={() => handleItemClick(section.id)}
+                title={isCollapsed ? section.title : undefined}
                 style={{
                   width: '100%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: isCollapsed ? 'center' : 'flex-start',
                   gap: isCollapsed ? '0' : '0.75rem',
-                  padding: isCollapsed ? '0.7rem 0' : '0.75rem 0.85rem',
+                  padding: isCollapsed ? '0.7rem 0' : '0.625rem 0.85rem',
                   borderRadius: '10px',
                   border: isCurrentSection
                     ? '1px solid #2563EB'
@@ -406,42 +381,19 @@ export default function SidebarMenu({
                   )}
                 </div>
 
-                {/* Title & Subtitle (Expanded Only) */}
+                {/* Title (Expanded Only) */}
                 {!isCollapsed && (
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{
-                        fontFamily: 'monospace',
-                        fontSize: '0.72rem',
-                        fontWeight: '800',
-                        color: isCurrentSection ? '#38BDF8' : '#64748B',
-                      }}>
-                        {section.number}.
-                      </span>
-                      <span style={{
-                        fontSize: '0.88rem',
-                        fontWeight: '700',
-                        color: isCurrentSection ? '#FFFFFF' : '#E2E8F0',
-                        letterSpacing: '-0.01em',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}>
-                        {section.title}
-                      </span>
-                    </div>
-                    <div style={{
-                      fontSize: '0.7rem',
-                      color: isCurrentSection ? '#94A3B8' : '#64748B',
-                      fontWeight: '500',
-                      marginTop: '2px',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}>
-                      {section.subtitle}
-                    </div>
-                  </div>
+                  <span style={{
+                    fontSize: '0.92rem',
+                    fontWeight: '700',
+                    color: isCurrentSection ? '#FFFFFF' : '#E2E8F0',
+                    letterSpacing: '-0.01em',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}>
+                    {section.title}
+                  </span>
                 )}
 
                 {/* Right Arrow Indicator for Active Item (Expanded Only) */}
@@ -475,10 +427,7 @@ export default function SidebarMenu({
                   pointerEvents: 'none',
                 }}>
                   <div style={{ fontSize: '0.825rem', fontWeight: '700', color: '#FFFFFF' }}>
-                    {section.number}. {section.title}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>
-                    {section.subtitle}
+                    {section.title}
                   </div>
                 </div>
               )}

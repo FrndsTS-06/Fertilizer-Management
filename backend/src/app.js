@@ -17,8 +17,11 @@ app.use('/api/products', require('./modules/products/products.routes'));
 app.use('/api/inventory', require('./modules/inventory/inventory.routes'));
 app.use('/api/customers', require('./modules/customers/customers.routes'));
 
-// Sale invoice payments route
+// Sales & payments routes
 const customersController = require('./modules/customers/customers.controller');
+app.get('/api/sales', customersController.getAllSales);
+app.post('/api/sales', customersController.createSale);
+app.get('/api/payments', customersController.getAllPayments);
 app.post('/api/sales/:id/payments', customersController.recordSalePayment);
 
 // app.use('/api/auth', require('./modules/auth/routes'));

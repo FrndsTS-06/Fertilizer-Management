@@ -10,6 +10,7 @@ export default function ProductTable({
   onViewDetails,
   onUpdateStock,
   onEditProduct,
+  onDeleteProduct,
   pageSize = 8,
 }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -31,7 +32,7 @@ export default function ProductTable({
           color: '#92400E',
           border: '#FDE68A',
           dot: '#F59E0B',
-          label: 'Low Stock',
+          label: 'Your stock is empty (Low Stock)',
         };
       case 'Out of Stock':
       default:
@@ -40,7 +41,7 @@ export default function ProductTable({
           color: '#991B1B',
           border: '#FECACA',
           dot: '#EF4444',
-          label: 'Out of Stock',
+          label: 'Your stock is empty',
         };
     }
   };
@@ -114,11 +115,12 @@ export default function ProductTable({
               fontSize: '0.75rem',
               fontWeight: '700',
             }}>
-              <th style={{ padding: '0.9rem 1.25rem', width: '70px' }}>Photo</th>
+              <th style={{ padding: '0.9rem 1.25rem', width: '60px' }}>Photo</th>
               <th style={{ padding: '0.9rem 1rem' }}>Product Name</th>
-              <th style={{ padding: '0.9rem 1rem' }}>Product Code</th>
               <th style={{ padding: '0.9rem 1rem' }}>Unit</th>
-              <th style={{ padding: '0.9rem 1rem' }}>Current Stock</th>
+              <th style={{ padding: '0.9rem 1rem' }}>Actual Stock</th>
+              <th style={{ padding: '0.9rem 1rem' }}>Actual Price</th>
+              <th style={{ padding: '0.9rem 1rem' }}>Selling Price</th>
               <th style={{ padding: '0.9rem 1rem' }}>Stock Status</th>
               <th style={{ padding: '0.9rem 1.25rem', textAlign: 'right' }}>Actions</th>
             </tr>
@@ -165,6 +167,7 @@ export default function ProductTable({
                       fontWeight: '700',
                       color: '#0B1F3A',
                       lineHeight: '1.3',
+                      fontSize: '0.9rem',
                     }}>
                       {prod.name}
                     </div>
@@ -173,28 +176,12 @@ export default function ProductTable({
                     </div>
                   </td>
 
-                  {/* 3. Product Code */}
-                  <td style={{ padding: '0.75rem 1rem', verticalAlign: 'middle' }}>
-                    <span style={{
-                      fontFamily: 'monospace',
-                      fontWeight: '700',
-                      fontSize: '0.825rem',
-                      color: '#2563EB', // Electric Blue
-                      backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(37, 99, 235, 0.2)',
-                    }}>
-                      {prod.code}
-                    </span>
-                  </td>
-
-                  {/* 4. Unit */}
-                  <td style={{ padding: '0.75rem 1rem', verticalAlign: 'middle', color: '#1E293B', fontWeight: '600' }}>
+                  {/* 3. Unit */}
+                  <td style={{ padding: '0.75rem 1rem', verticalAlign: 'middle', color: '#1E293B', fontWeight: '600', fontSize: '0.85rem' }}>
                     {prod.unit}
                   </td>
 
-                  {/* 5. Current Stock (with Cyan highlights for neutral count) */}
+                  {/* 4. Actual Stock */}
                   <td style={{ padding: '0.75rem 1rem', verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                       <span style={{
@@ -212,7 +199,7 @@ export default function ProductTable({
 
                     {/* Subtle stock bar with Cyan accent */}
                     <div style={{
-                      width: '90px',
+                      width: '85px',
                       height: '4px',
                       backgroundColor: '#E2E8F0',
                       borderRadius: '9999px',
@@ -222,9 +209,39 @@ export default function ProductTable({
                       <div style={{
                         height: '100%',
                         width: `${Math.min(100, (prod.stock / (prod.minThreshold * 2 || 1)) * 100)}%`,
-                        backgroundColor: prod.stock <= 0 ? '#EF4444' : prod.stock <= prod.minThreshold ? '#F59E0B' : '#06B6D4', // Cyan
+                        backgroundColor: prod.stock <= 0 ? '#EF4444' : prod.stock <= prod.minThreshold ? '#F59E0B' : '#06B6D4',
                         borderRadius: '9999px',
                       }} />
+                    </div>
+                  </td>
+
+                  {/* 5. Actual Price (Purchase / Cost) */}
+                  <td style={{ padding: '0.75rem 1rem', verticalAlign: 'middle' }}>
+                    <div style={{
+                      fontWeight: '700',
+                      color: '#0B1F3A',
+                      fontSize: '0.925rem',
+                      fontFeatureSettings: '"tnum"',
+                    }}>
+                      ₹{Number(prod.costPrice || 0).toLocaleString('en-IN')}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748B' }}>
+                      Actual Cost
+                    </div>
+                  </td>
+
+                  {/* 6. Selling Price */}
+                  <td style={{ padding: '0.75rem 1rem', verticalAlign: 'middle' }}>
+                    <div style={{
+                      fontWeight: '800',
+                      color: '#15803D',
+                      fontSize: '0.95rem',
+                      fontFeatureSettings: '"tnum"',
+                    }}>
+                      ₹{Number(prod.price || 0).toLocaleString('en-IN')}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#16A34A', fontWeight: '600' }}>
+                      Selling Price
                     </div>
                   </td>
 
@@ -253,9 +270,9 @@ export default function ProductTable({
                     </span>
                   </td>
 
-                  {/* 7. Actions: View Details and Update Stock */}
+                  {/* 7. Actions: Update Stock, View Details, and Delete */}
                   <td style={{ padding: '0.75rem 1.25rem', textAlign: 'right', verticalAlign: 'middle' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
                       {/* Update Stock Action Button */}
                       <button
                         onClick={() => onUpdateStock && onUpdateStock(prod)}
@@ -263,13 +280,14 @@ export default function ProductTable({
                           backgroundColor: '#2563EB', // Electric Blue
                           color: '#FFFFFF',
                           border: 'none',
-                          padding: '0.4rem 0.75rem',
+                          padding: '0.4rem 0.65rem',
                           borderRadius: '6px',
                           fontSize: '0.775rem',
                           fontWeight: '700',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
                           boxShadow: '0 1px 2px rgba(37, 99, 235, 0.2)',
+                          whiteSpace: 'nowrap',
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D4ED8')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2563EB')}
@@ -285,12 +303,13 @@ export default function ProductTable({
                           backgroundColor: '#F1F5F9',
                           color: '#0B1F3A',
                           border: '1px solid #CBD5E1',
-                          padding: '0.4rem 0.75rem',
+                          padding: '0.4rem 0.65rem',
                           borderRadius: '6px',
                           fontSize: '0.775rem',
                           fontWeight: '600',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
+                          whiteSpace: 'nowrap',
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.backgroundColor = '#E2E8F0';
@@ -303,6 +322,39 @@ export default function ProductTable({
                         title="View comprehensive product details"
                       >
                         View Details
+                      </button>
+
+                      {/* Delete / Remove Action */}
+                      <button
+                        onClick={() => onDeleteProduct && onDeleteProduct(prod)}
+                        style={{
+                          backgroundColor: '#FEE2E2',
+                          color: '#DC2626',
+                          border: '1px solid #FECACA',
+                          padding: '0.4rem 0.65rem',
+                          borderRadius: '6px',
+                          fontSize: '0.775rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          transition: 'all 0.15s ease',
+                          whiteSpace: 'nowrap',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#DC2626';
+                          e.currentTarget.style.color = '#FFFFFF';
+                          e.currentTarget.style.borderColor = '#DC2626';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#FEE2E2';
+                          e.currentTarget.style.color = '#DC2626';
+                          e.currentTarget.style.borderColor = '#FECACA';
+                        }}
+                        title={`Remove/Delete ${prod.name}`}
+                      >
+                        🗑️ Delete
                       </button>
                     </div>
                   </td>

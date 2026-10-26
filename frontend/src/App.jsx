@@ -9,9 +9,11 @@ import Reports from './pages/Reports';
 
 export default function App() {
   const [activeMenu, setActiveMenu] = useState('dashboard');
+  const [activeSubItem, setActiveSubItem] = useState('');
 
-  const handleSelectMenu = (menuId) => {
+  const handleSelectMenu = (menuId, subItemId = '') => {
     setActiveMenu(menuId);
+    setActiveSubItem(subItemId);
   };
 
   const renderActiveModule = () => {
@@ -19,13 +21,13 @@ export default function App() {
       case 'dashboard':
         return <Dashboard onNavigate={handleSelectMenu} />;
       case 'products-stock':
-        return <ProductsStockOverview onNavigate={handleSelectMenu} />;
+        return <ProductsStockOverview subItem={activeSubItem} onNavigate={handleSelectMenu} />;
       case 'purchase-sales':
-        return <PurchasesSales onNavigate={handleSelectMenu} />;
+        return <PurchasesSales subItem={activeSubItem} onNavigate={handleSelectMenu} />;
       case 'customer-details':
-        return <CustomerDetails onNavigate={handleSelectMenu} />;
+        return <CustomerDetails subItem={activeSubItem} onNavigate={handleSelectMenu} />;
       case 'reports':
-        return <Reports onNavigate={handleSelectMenu} />;
+        return <Reports subItem={activeSubItem} onNavigate={handleSelectMenu} />;
       default:
         return <Dashboard onNavigate={handleSelectMenu} />;
     }

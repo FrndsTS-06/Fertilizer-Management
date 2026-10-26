@@ -52,29 +52,71 @@ exports.getInventoryMovements = (req, res) => {
 };
 
 // POST /api/inventory/adjustments
-// Manual adjustment only for corrections or non-sale/non-purchase changes
+// Stock adjustment and retail purchase inward handler
 exports.createAdjustment = (req, res) => {
   try {
-    const { productId, operation, quantity, reason, reference } = req.body;
+    const {
+      productId,
+      productName,
+      company,
+      brand,
+      operation = 'ADD',
+      quantity,
+      costPrice,
+      overallCost,
+      unit,
+      reason,
+      reference,
+      type: customType,
+    } = req.body;
 
-    if (!productId || !operation || quantity === undefined || !reason) {
+    const op = (operation || 'ADD').toUpperCase();
+    const qty = Math.abs(Number(quantity));
+
+    if ((!productId && !productName) || isNaN(qty) || qty < 0) {
       return res.status(400).json({
         success: false,
-        error: 'Product ID, Operation (ADD, REDUCE, CORRECT), Quantity, and Reason are required.',
+        error: 'Product and valid quantity are required.',
       });
     }
 
-    const product = products.find(p => p.id === productId || p.code === productId);
+    let product = products.find(p =>
+      (productId && (p.id === productId || p.code === productId)) ||
+      (productName && p.name && p.name.trim().toLowerCase() === productName.trim().toLowerCase())
+    );
+
+    // If product doesn't exist yet, auto-create it for retail purchase
+    if (!product && productName) {
+      const newCode = `PRD${String(products.length + 1).padStart(3, '0')}`;
+      const singlePrice = Number(costPrice) || 0;
+      product = {
+        id: newCode,
+        code: newCode,
+        name: productName.trim(),
+        category: req.body.category || 'Fertilizer',
+        brand: company || brand || 'Standard',
+        unit: unit || '50kg Bag',
+        stock: 0,
+        minThreshold: 10,
+        costPrice: singlePrice,
+        price: singlePrice > 0 ? Math.round(singlePrice * 1.1) : 0,
+        photo: 'https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=300&auto=format&fit=crop&q=60',
+        status: 'Out of Stock',
+        description: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      products.push(product);
+    }
+
     if (!product) {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
 
     const prevStock = Number(product.stock) || 0;
-    const qty = Math.abs(Number(quantity));
     let newStock = prevStock;
     let changeQty = 0;
 
-    const op = operation.toUpperCase();
     if (op === 'ADD') {
       newStock = prevStock + qty;
       changeQty = qty;
@@ -88,7 +130,6 @@ exports.createAdjustment = (req, res) => {
       newStock = prevStock - qty;
       changeQty = -qty;
     } else if (op === 'CORRECT') {
-      // Direct count overwrite
       newStock = qty;
       changeQty = qty - prevStock;
     } else {
@@ -98,10 +139,21 @@ exports.createAdjustment = (req, res) => {
       });
     }
 
-    // Update product stock and recompute status
+    // Update product stock and properties
     product.stock = newStock;
+    if (costPrice !== undefined && Number(costPrice) > 0) {
+      product.costPrice = Number(costPrice);
+      if (!product.price || product.price <= product.costPrice) {
+        product.price = Math.round(Number(costPrice) * 1.1);
+      }
+    }
+    if (company || brand) product.brand = company || brand;
+    if (unit) product.unit = unit;
     product.status = computeStatus(newStock, product.minThreshold);
     product.updatedAt = new Date();
+
+    const finalReason = reason || (company ? `Retail Purchase from ${company}` : 'Stock Inward Purchase');
+    const finalRef = reference || (company ? `${company.toUpperCase().slice(0, 4)}-PUR-${Date.now().toString().slice(-4)}` : `PUR-${Date.now().toString().slice(-4)}`);
 
     // Create movement audit record
     const movementRecord = {
@@ -109,12 +161,16 @@ exports.createAdjustment = (req, res) => {
       productId: product.id,
       productName: product.name,
       productCode: product.code,
-      type: 'ADJUSTMENT',
+      type: customType || (op === 'ADD' ? 'PURCHASE' : 'ADJUSTMENT'),
+      action: op === 'ADD' ? 'ADDED' : 'UPDATE',
       changeQty,
       previousStock: prevStock,
       newStock,
-      reason,
-      reference: reference || `MAN-ADJ-${Date.now().toString().slice(-4)}`,
+      unit: product.unit,
+      costPrice: Number(costPrice) || product.costPrice || 0,
+      overallCost: Number(overallCost) || ((Number(costPrice) || product.costPrice || 0) * qty),
+      reason: finalReason,
+      reference: finalRef,
       createdAt: new Date(),
     };
 
@@ -122,7 +178,7 @@ exports.createAdjustment = (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: `Stock successfully adjusted for ${product.name}`,
+      message: `Stock successfully updated for ${product.name}`,
       data: {
         product,
         movement: movementRecord,

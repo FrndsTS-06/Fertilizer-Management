@@ -4,6 +4,7 @@ const {
   payments,
   recalculateCustomerDues,
 } = require('./customers.data');
+const { products, movements, computeStatus } = require('../products/products.data');
 
 // GET /api/customers
 exports.getAllCustomers = (req, res) => {
@@ -79,7 +80,17 @@ exports.getCustomerById = (req, res) => {
 // POST /api/customers
 exports.createCustomer = (req, res) => {
   try {
-    const { name, phone, village, address, creditLimit = 25000, notes } = req.body;
+    const {
+      name,
+      phone,
+      village,
+      address,
+      totalPayment,
+      paidAmount,
+      duePayment,
+      date,
+      notes,
+    } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, error: 'Customer name is required' });
@@ -89,6 +100,13 @@ exports.createCustomer = (req, res) => {
       return res.status(400).json({ success: false, error: `Phone number ${phone} is already registered` });
     }
 
+    const total = Number(totalPayment) || 0;
+    const paid = Number(paidAmount) || 0;
+    const due = duePayment !== undefined && duePayment !== ''
+      ? Number(duePayment)
+      : Math.max(0, total - paid);
+    const effectiveDate = date ? new Date(date) : new Date();
+
     const newId = `CUST${String(customers.length + 1).padStart(3, '0')}`;
     const newCustomer = {
       id: newId,
@@ -96,11 +114,11 @@ exports.createCustomer = (req, res) => {
       phone: phone ? phone.trim() : '',
       village: village ? village.trim() : '',
       address: address ? address.trim() : '',
-      creditLimit: Number(creditLimit) || 25000,
-      totalPurchases: 0,
-      outstandingDues: 0,
+      totalPurchases: total,
+      totalPaid: paid,
+      outstandingDues: due,
       notes: notes || '',
-      createdAt: new Date(),
+      createdAt: effectiveDate,
       updatedAt: new Date(),
     };
 
@@ -127,7 +145,23 @@ exports.updateCustomer = (req, res) => {
     }
 
     const existing = customers[index];
-    const { name, phone, village, address, creditLimit, notes } = req.body;
+    const {
+      name,
+      phone,
+      village,
+      address,
+      totalPayment,
+      paidAmount,
+      duePayment,
+      date,
+      notes,
+    } = req.body;
+
+    const total = totalPayment !== undefined ? Number(totalPayment) : (existing.totalPurchases || 0);
+    const paid = paidAmount !== undefined ? Number(paidAmount) : (existing.totalPaid || 0);
+    const due = duePayment !== undefined && duePayment !== ''
+      ? Number(duePayment)
+      : (existing.outstandingDues !== undefined ? existing.outstandingDues : Math.max(0, total - paid));
 
     customers[index] = {
       ...existing,
@@ -135,8 +169,11 @@ exports.updateCustomer = (req, res) => {
       phone: phone !== undefined ? phone.trim() : existing.phone,
       village: village !== undefined ? village.trim() : existing.village,
       address: address !== undefined ? address.trim() : existing.address,
-      creditLimit: creditLimit !== undefined ? Number(creditLimit) : existing.creditLimit,
+      totalPurchases: total,
+      totalPaid: paid,
+      outstandingDues: due,
       notes: notes !== undefined ? notes : existing.notes,
+      createdAt: date ? new Date(date) : existing.createdAt,
       updatedAt: new Date(),
     };
 
@@ -293,3 +330,149 @@ exports.recordSalePayment = (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// GET /api/sales
+exports.getAllSales = (req, res) => {
+  try {
+    const list = [...sales].sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json({
+      success: true,
+      count: list.length,
+      data: list,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// GET /api/payments
+exports.getAllPayments = (req, res) => {
+  try {
+    const list = [...payments].sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json({
+      success: true,
+      count: list.length,
+      data: list,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// DELETE /api/customers/:id
+exports.deleteCustomer = (req, res) => {
+  try {
+    const { id } = req.params;
+    const index = customers.findIndex(c => c.id === id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, error: 'Customer not found' });
+    }
+    const [deleted] = customers.splice(index, 1);
+    res.json({
+      success: true,
+      message: `Customer ${deleted.name} removed successfully`,
+      data: deleted,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// DELETE /api/customers
+exports.clearAllCustomers = (req, res) => {
+  try {
+    customers.length = 0;
+    sales.length = 0;
+    payments.length = 0;
+    res.json({
+      success: true,
+      message: 'All customers and khata records cleared successfully',
+      count: 0,
+      data: [],
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// POST /api/sales
+exports.createSale = (req, res) => {
+  try {
+    const saleData = req.body;
+    const invoiceNumber = saleData.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`;
+    const newSale = {
+      id: invoiceNumber,
+      invoiceNumber,
+      customerId: saleData.customerId || null,
+      customerName: saleData.customerName || 'Direct Counter Sale',
+      customerPhone: saleData.customerPhone || '',
+      customerVillage: saleData.customerVillage || '',
+      ownerGstId: saleData.ownerGstId || saleData.gstId || null,
+      gstId: saleData.ownerGstId || saleData.gstId || null,
+      date: saleData.date || new Date().toISOString(),
+      items: saleData.items || [],
+      subtotal: Number(saleData.subtotal) || 0,
+      gstRate: Number(saleData.gstRate) || 0,
+      gstMode: saleData.gstMode || 'EXCLUSIVE',
+      gstAmount: Number(saleData.gstAmount) || 0,
+      totalAmount: Number(saleData.totalAmount) || 0,
+      paidAmount: Number(saleData.paidAmount) || 0,
+      dueAmount: Number(saleData.dueAmount) || 0,
+      paymentMethod: saleData.paymentMethod || 'CASH',
+      status: saleData.status || (Number(saleData.dueAmount) > 0 ? 'UNPAID' : 'PAID'),
+      createdAt: new Date().toISOString(),
+    };
+
+    sales.unshift(newSale);
+
+    // Automatically deduct stock and record stock ledger movement for each sold item
+    if (Array.isArray(newSale.items)) {
+      newSale.items.forEach((item) => {
+        const prod = products.find(p =>
+          (item.productId && (p.id === item.productId || p.code === item.productId)) ||
+          (item.id && (p.id === item.id || p.code === item.id)) ||
+          (item.code && (p.code === item.code || p.id === item.code)) ||
+          (item.name && p.name && p.name.trim().toLowerCase() === item.name.trim().toLowerCase())
+        );
+        if (prod) {
+          const prevStock = Number(prod.stock) || 0;
+          const qty = Number(item.quantity !== undefined ? item.quantity : (item.qty || 1));
+          const newStock = Math.max(0, prevStock - qty);
+          prod.stock = newStock;
+          prod.status = computeStatus(newStock, prod.minThreshold);
+          prod.updatedAt = new Date();
+
+          movements.unshift({
+            id: `MOV${String(movements.length + 1001)}`,
+            productId: prod.id,
+            productName: prod.name,
+            productCode: prod.code,
+            type: 'SALE',
+            action: 'SELL',
+            changeQty: -qty,
+            previousStock: prevStock,
+            newStock,
+            unit: prod.unit || item.unit || 'bags',
+            reason: `Sold to ${newSale.customerName || 'Direct Counter Sale'}`,
+            reference: invoiceNumber,
+            createdAt: new Date(),
+          });
+        }
+      });
+    }
+
+    if (newSale.customerId) {
+      recalculateCustomerDues(newSale.customerId);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Invoice ${invoiceNumber} created successfully`,
+      data: newSale,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+

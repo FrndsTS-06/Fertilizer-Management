@@ -5,5 +5,6 @@ const controller = require('./inventory.controller');
 router.get('/summary', controller.getInventorySummary);
 router.get('/movements', controller.getInventoryMovements);
 router.post('/adjustments', controller.createAdjustment);
+router.post('/adjustment', controller.createAdjustment);
 
 module.exports = router;

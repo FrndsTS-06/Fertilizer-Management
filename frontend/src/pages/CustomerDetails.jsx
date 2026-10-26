@@ -19,10 +19,10 @@ import { customerService } from '../services/customerService';
 // SUBCOMPONENT 1: Summary Cards
 // ----------------------------------------------------------------------
 function CustomerSummaryCards({ summary, activeDuesFilter, onSelectFilter }) {
-  const totalCustomers = summary?.totalCustomers ?? 250;
-  const customersWithDues = summary?.customersWithDues ?? 4;
-  const totalOutstandingDues = summary?.totalOutstandingDues ?? 40000;
-  const paymentsReceived = summary?.totalPaymentsReceived ?? 24915;
+  const totalCustomers = summary?.totalCustomers ?? 0;
+  const customersWithDues = summary?.customersWithDues ?? 0;
+  const totalOutstandingDues = summary?.totalOutstandingDues ?? 0;
+  const paymentsReceived = summary?.totalPaymentsReceived ?? 0;
 
   const cards = [
     {
@@ -188,7 +188,7 @@ function CustomerFilters({
   viewMode,
   onViewModeChange,
   onResetFilters,
-  villages = ['All', 'Wadgaon', 'Shivaji Nagar', 'Pimpalgaon', 'Borgaon', 'Koregaon'],
+  villages = ['All'],
   totalFound = 0,
 }) {
   return (
@@ -608,9 +608,9 @@ function CustomerTable({
                             }}>
                               {c.id}
                             </span>
-                            {c.creditLimit && (
+                            {c.createdAt && (
                               <span style={{ fontSize: '0.725rem', color: '#64748B' }}>
-                                Limit: ₹{Number(c.creditLimit).toLocaleString('en-IN')}
+                                Reg: {new Date(c.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                               </span>
                             )}
                           </div>
@@ -1187,13 +1187,9 @@ function CustomerProfile({
                         <strong style={{ color: '#0B1F3A' }}>{customer.village || 'N/A'}</strong>
                       </div>
                       <div>
-                        <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>Credit Limit</span>
-                        <strong style={{ color: '#0B1F3A' }}>₹{Number(customer.creditLimit || 25000).toLocaleString('en-IN')}</strong>
-                      </div>
-                      <div>
-                        <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>Available Credit</span>
-                        <strong style={{ color: '#15803D' }}>
-                          ₹{Math.max(0, Number(customer.creditLimit || 25000) - outstandingDues).toLocaleString('en-IN')}
+                        <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>Registration Date</span>
+                        <strong style={{ color: '#0B1F3A' }}>
+                          {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                         </strong>
                       </div>
                       <div style={{ gridColumn: 'span 2' }}>
@@ -1322,13 +1318,25 @@ function CustomerProfile({
 // ----------------------------------------------------------------------
 // SUBCOMPONENT 5: Customer Add & Edit Modal
 // ----------------------------------------------------------------------
+// Helper function to get today's date formatted as YYYY-MM-DD from the local device
+const getDeviceTodayDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 function CustomerForm({ isOpen, customer = null, onClose, onSave }) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     village: '',
     address: '',
-    creditLimit: '25000',
+    date: getDeviceTodayDate(),
+    totalPayment: '',
+    paidAmount: '',
+    duePayment: '',
     notes: '',
   });
   const [error, setError] = useState('');
@@ -1338,12 +1346,24 @@ function CustomerForm({ isOpen, customer = null, onClose, onSave }) {
 
   useEffect(() => {
     if (customer) {
+      const total = customer.totalPurchases !== undefined ? String(customer.totalPurchases) : '0';
+      const paid = customer.totalPaid !== undefined
+        ? String(customer.totalPaid)
+        : String(Math.max(0, (customer.totalPurchases || 0) - (customer.outstandingDues || 0)));
+      const due = customer.outstandingDues !== undefined ? String(customer.outstandingDues) : '0';
+      const custDate = customer.createdAt
+        ? new Date(customer.createdAt).toISOString().split('T')[0]
+        : getDeviceTodayDate();
+
       setFormData({
         name: customer.name || '',
         phone: customer.phone || '',
         village: customer.village || '',
         address: customer.address || '',
-        creditLimit: customer.creditLimit !== undefined ? String(customer.creditLimit) : '25000',
+        date: custDate,
+        totalPayment: total,
+        paidAmount: paid,
+        duePayment: due,
         notes: customer.notes || '',
       });
     } else {
@@ -1352,12 +1372,55 @@ function CustomerForm({ isOpen, customer = null, onClose, onSave }) {
         phone: '',
         village: '',
         address: '',
-        creditLimit: '25000',
+        date: getDeviceTodayDate(),
+        totalPayment: '',
+        paidAmount: '',
+        duePayment: '',
         notes: '',
       });
     }
     setError('');
   }, [customer, isOpen]);
+
+  // Reactive payment calculations
+  const handleTotalPaymentChange = (val) => {
+    setFormData(prev => {
+      const total = Number(val) || 0;
+      const paid = Number(prev.paidAmount) || 0;
+      const due = Math.max(0, total - paid);
+      return {
+        ...prev,
+        totalPayment: val,
+        duePayment: val === '' && prev.paidAmount === '' ? '' : String(due),
+      };
+    });
+  };
+
+  const handlePaidAmountChange = (val) => {
+    setFormData(prev => {
+      const total = Number(prev.totalPayment) || 0;
+      const paid = Number(val) || 0;
+      const due = Math.max(0, total - paid);
+      return {
+        ...prev,
+        paidAmount: val,
+        duePayment: val === '' && prev.totalPayment === '' ? '' : String(due),
+      };
+    });
+  };
+
+  const handleDuePaymentChange = (val) => {
+    setFormData(prev => {
+      const total = Number(prev.totalPayment) || 0;
+      const due = Number(val) || 0;
+      const paid = Math.max(0, total - due);
+      return {
+        ...prev,
+        duePayment: val,
+        paidAmount: val === '' && prev.totalPayment === '' ? '' : String(paid),
+      };
+    });
+  };
 
   if (!isOpen) return null;
 
@@ -1399,7 +1462,7 @@ function CustomerForm({ isOpen, customer = null, onClose, onSave }) {
         borderRadius: '16px',
         width: '100%',
         maxWidth: '560px',
-        maxHeight: '90vh',
+        maxHeight: '92vh',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '0 20px 25px -5px rgba(11, 31, 58, 0.25)',
@@ -1439,6 +1502,9 @@ function CustomerForm({ isOpen, customer = null, onClose, onSave }) {
               height: '32px',
               cursor: 'pointer',
               color: '#1E293B',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             ✕
@@ -1447,12 +1513,13 @@ function CustomerForm({ isOpen, customer = null, onClose, onSave }) {
 
         <form onSubmit={handleSubmit} style={{ padding: '1.5rem 1.75rem', overflowY: 'auto' }}>
           {error && (
-            <div style={{ backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>
+            <div style={{ backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem', fontWeight: '600' }}>
               ⚠️ {error}
             </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+            {/* Customer Name */}
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#0B1F3A', display: 'block', marginBottom: '0.35rem' }}>
                 Customer Name *
@@ -1460,57 +1527,177 @@ function CustomerForm({ isOpen, customer = null, onClose, onSave }) {
               <input
                 type="text"
                 required
+                placeholder="Enter customer / farmer name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #CBD5E1' }}
+                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1.5px solid #CBD5E1', outline: 'none' }}
+                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
               />
             </div>
 
+            {/* Phone Number */}
             <div>
               <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#0B1F3A', display: 'block', marginBottom: '0.35rem' }}>
                 Phone Number
               </label>
               <input
                 type="tel"
+                placeholder="Mobile number"
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #CBD5E1' }}
+                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1.5px solid #CBD5E1', outline: 'none' }}
+                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
               />
             </div>
 
+            {/* Village */}
             <div>
               <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#0B1F3A', display: 'block', marginBottom: '0.35rem' }}>
                 Village
               </label>
               <input
                 type="text"
+                placeholder="Village / Town"
                 value={formData.village}
                 onChange={(e) => setFormData(prev => ({ ...prev, village: e.target.value }))}
-                style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #CBD5E1' }}
+                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1.5px solid #CBD5E1', outline: 'none' }}
+                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
               />
             </div>
 
+            {/* 4. Default Date (automatically taken from device) */}
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#0B1F3A', display: 'block', marginBottom: '0.35rem' }}>
-                Credit Limit (₹)
+                Registration Date * <span style={{ fontSize: '0.72rem', fontWeight: '500', color: '#64748B' }}>(Auto-filled from device)</span>
               </label>
               <input
-                type="number"
-                value={formData.creditLimit}
-                onChange={(e) => setFormData(prev => ({ ...prev, creditLimit: e.target.value }))}
-                style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #CBD5E1', fontWeight: '700' }}
+                type="date"
+                required
+                value={formData.date}
+                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '8px',
+                  border: '1.5px solid #CBD5E1',
+                  fontWeight: '600',
+                  color: '#0B1F3A',
+                  backgroundColor: '#FFFFFF',
+                  outline: 'none',
+                }}
+                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
               />
             </div>
 
+            {/* Financial Details: Total Payment, Paid Amount, Due Payment */}
+            <div style={{
+              gridColumn: 'span 2',
+              backgroundColor: '#F8FAFC',
+              borderRadius: '10px',
+              padding: '1rem',
+              border: '1.5px solid #E2E8F0',
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                {/* 1. Total Payment Option */}
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0B1F3A', display: 'block', marginBottom: '0.35rem' }}>
+                    1. Total Payment (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="0.00"
+                    value={formData.totalPayment}
+                    onChange={(e) => handleTotalPaymentChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CBD5E1',
+                      fontWeight: '700',
+                      fontSize: '0.875rem',
+                      color: '#0B1F3A',
+                      backgroundColor: '#FFFFFF',
+                      outline: 'none',
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
+                    onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+                  />
+                </div>
+
+                {/* 2. Paid Amount */}
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#15803D', display: 'block', marginBottom: '0.35rem' }}>
+                    2. Paid Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="0.00"
+                    value={formData.paidAmount}
+                    onChange={(e) => handlePaidAmountChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #86EFAC',
+                      backgroundColor: '#F0FDF4',
+                      fontWeight: '700',
+                      fontSize: '0.875rem',
+                      color: '#15803D',
+                      outline: 'none',
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = '#16A34A')}
+                    onBlur={(e) => (e.target.style.borderColor = '#86EFAC')}
+                  />
+                </div>
+
+                {/* 3. Due Payment */}
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#B91C1C', display: 'block', marginBottom: '0.35rem' }}>
+                    3. Due Payment (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="0.00"
+                    value={formData.duePayment}
+                    onChange={(e) => handleDuePaymentChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #FECACA',
+                      backgroundColor: '#FEF2F2',
+                      fontWeight: '700',
+                      fontSize: '0.875rem',
+                      color: '#B91C1C',
+                      outline: 'none',
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = '#DC2626')}
+                    onBlur={(e) => (e.target.style.borderColor = '#FECACA')}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Address */}
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#0B1F3A', display: 'block', marginBottom: '0.35rem' }}>
                 Address
               </label>
               <textarea
                 rows="2"
+                placeholder="Customer full address"
                 value={formData.address}
                 onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #CBD5E1' }}
+                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1.5px solid #CBD5E1', outline: 'none' }}
+                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
               />
             </div>
           </div>
@@ -1519,7 +1706,7 @@ function CustomerForm({ isOpen, customer = null, onClose, onSave }) {
             <button
               type="button"
               onClick={onClose}
-              style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: '1px solid #CBD5E1', backgroundColor: '#FFFFFF', cursor: 'pointer' }}
+              style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: '1px solid #CBD5E1', backgroundColor: '#FFFFFF', cursor: 'pointer', fontWeight: '600', color: '#475569' }}
             >
               Cancel
             </button>
@@ -1781,9 +1968,18 @@ function ReceivePaymentForm({
 // MAIN EXPORT: CustomerDetails Page
 // ----------------------------------------------------------------------
 export default function CustomerDetails({ subItem = 'all-customers', onNavigate }) {
+  const [mainTab, setMainTab] = useState(subItem === 'retail-details' ? 'retail-details' : 'customer-details');
   const [customers, setCustomers] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Retail sales state
+  const [retailSales, setRetailSales] = useState([]);
+  const [retailLoading, setRetailLoading] = useState(false);
+  const [retailSearch, setRetailSearch] = useState('');
+  const [retailPaymentFilter, setRetailPaymentFilter] = useState('ALL');
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [duesFilter, setDuesFilter] = useState('all');
@@ -1800,12 +1996,17 @@ export default function CustomerDetails({ subItem = 'all-customers', onNavigate 
   const [unpaidInvoicesForPayment, setUnpaidInvoicesForPayment] = useState([]);
 
   useEffect(() => {
-    if (subItem === 'outstanding-dues') {
+    if (subItem === 'retail-details') {
+      setMainTab('retail-details');
+    } else if (subItem === 'outstanding-dues') {
+      setMainTab('customer-details');
       setDuesFilter('has-dues');
     } else if (subItem === 'add-customer') {
+      setMainTab('customer-details');
       setEditingCustomer(null);
       setIsCustomerFormOpen(true);
     } else if (subItem === 'receive-payment') {
+      setMainTab('customer-details');
       const custWithDues = customers.find((c) => (c.outstandingDues || 0) > 0) || customers[0] || null;
       if (custWithDues) {
         handleOpenReceivePayment(custWithDues);
@@ -1832,9 +2033,25 @@ export default function CustomerDetails({ subItem = 'all-customers', onNavigate 
     }
   }, [searchQuery, duesFilter, selectedVillage]);
 
+  const loadRetailSales = useCallback(async () => {
+    setRetailLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/sales');
+      if (res.ok) {
+        const json = await res.json();
+        setRetailSales(json.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching retail sales:', err);
+    } finally {
+      setRetailLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadRetailSales();
+  }, [loadData, loadRetailSales]);
 
   const handleResetFilters = () => {
     setSearchQuery('');
@@ -1899,7 +2116,7 @@ export default function CustomerDetails({ subItem = 'all-customers', onNavigate 
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: '1rem',
-        marginBottom: '1.75rem',
+        marginBottom: '1.25rem',
       }}>
         <div>
           <h1 style={{
@@ -1910,7 +2127,7 @@ export default function CustomerDetails({ subItem = 'all-customers', onNavigate 
             margin: 0,
             lineHeight: '1.2',
           }}>
-            Customer Details
+            {mainTab === 'customer-details' ? 'Customer Details' : 'Retail Details'}
           </h1>
           <p style={{
             color: '#64748B',
@@ -1919,98 +2136,581 @@ export default function CustomerDetails({ subItem = 'all-customers', onNavigate 
             marginBottom: 0,
             fontWeight: '500',
           }}>
-            Manage customer records, purchases, and outstanding payments
+            {mainTab === 'customer-details'
+              ? 'Manage customer records, credit accounts, and outstanding payments'
+              : 'Direct counter sales, walk-in farmer billing, and cash/digital settlement records'}
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => {
-              const custWithDues = customers.find((c) => (c.outstandingDues || 0) > 0) || customers[0];
-              if (custWithDues) handleOpenReceivePayment(custWithDues);
-            }}
-            style={{
-              backgroundColor: '#FFFFFF',
-              color: '#0B1F3A',
-              border: '1px solid #CBD5E1',
-              padding: '0.65rem 1.15rem',
-              borderRadius: '8px',
-              fontWeight: '700',
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-            }}
-          >
-            <span>💳</span> Record Payment
-          </button>
+          {mainTab === 'customer-details' ? (
+            <>
+              <button
+                onClick={() => {
+                  const custWithDues = customers.find((c) => (c.outstandingDues || 0) > 0) || customers[0];
+                  if (custWithDues) handleOpenReceivePayment(custWithDues);
+                }}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  color: '#0B1F3A',
+                  border: '1px solid #CBD5E1',
+                  padding: '0.65rem 1.15rem',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                }}
+              >
+                <span>💳</span> Record Payment
+              </button>
 
-          <button
-            onClick={handleOpenAddCustomer}
-            style={{
-              backgroundColor: '#2563EB',
-              color: '#FFFFFF',
-              border: 'none',
-              padding: '0.65rem 1.35rem',
-              borderRadius: '8px',
-              fontWeight: '700',
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              boxShadow: '0 3px 10px rgba(37, 99, 235, 0.3)',
-            }}
-          >
-            <span>+</span> Add Customer
-          </button>
+              <button
+                onClick={handleOpenAddCustomer}
+                style={{
+                  backgroundColor: '#2563EB',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '0.65rem 1.35rem',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  boxShadow: '0 3px 10px rgba(37, 99, 235, 0.3)',
+                }}
+              >
+                <span>+</span> Add Customer
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={loadRetailSales}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  color: '#0B1F3A',
+                  border: '1px solid #CBD5E1',
+                  padding: '0.65rem 1.15rem',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                }}
+              >
+                <span>🔄</span> Refresh Bills
+              </button>
+
+              <button
+                onClick={() => onNavigate && onNavigate('purchase-sales', 'create-sale')}
+                style={{
+                  backgroundColor: '#059669',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '0.65rem 1.35rem',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  boxShadow: '0 3px 10px rgba(5, 150, 105, 0.3)',
+                }}
+              >
+                <span>🧾</span> + New Retail Bill
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* 2. Summary Cards */}
-      <CustomerSummaryCards
-        summary={summary}
-        activeDuesFilter={duesFilter}
-        onSelectFilter={setDuesFilter}
-      />
-
-      {/* 3. Filters */}
-      <CustomerFilters
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        duesFilter={duesFilter}
-        onDuesFilterChange={setDuesFilter}
-        selectedVillage={selectedVillage}
-        onVillageChange={setSelectedVillage}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onResetFilters={handleResetFilters}
-        totalFound={customers.length}
-      />
-
-      {/* 4. Customer Table */}
-      {loading ? (
-        <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '12px',
-          border: '1px solid #E2E8F0',
-          padding: '4rem 2rem',
-          textAlign: 'center',
-        }}>
-          <p style={{ color: '#64748B', fontWeight: '600' }}>Loading Customer Records...</p>
-        </div>
-      ) : (
-        <CustomerTable
-          customers={customers}
-          viewMode={viewMode}
-          onViewProfile={(c) => {
-            setSelectedCustomer(c);
-            setIsProfileOpen(true);
+      {/* 2. Top Button Option Tabs: Customer Details & Retail Details */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        borderBottom: '2px solid #E2E8F0',
+        paddingBottom: '0.85rem',
+        marginBottom: '1.75rem',
+      }}>
+        <button
+          type="button"
+          onClick={() => setMainTab('customer-details')}
+          style={{
+            padding: '0.65rem 1.4rem',
+            borderRadius: '8px',
+            border: mainTab === 'customer-details' ? '2px solid #0B1F3A' : '1px solid #CBD5E1',
+            backgroundColor: mainTab === 'customer-details' ? '#0B1F3A' : '#FFFFFF',
+            color: mainTab === 'customer-details' ? '#FFFFFF' : '#475569',
+            fontSize: '0.925rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.55rem',
+            boxShadow: mainTab === 'customer-details' ? '0 4px 12px rgba(11, 31, 58, 0.18)' : 'none',
+            transition: 'all 0.15s ease',
           }}
-          onReceivePayment={handleOpenReceivePayment}
-          onEditCustomer={handleOpenEditCustomer}
-        />
+        >
+          <span style={{ fontSize: '1.1rem' }}>👥</span> Customer Details
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('retail-details')}
+          style={{
+            padding: '0.65rem 1.4rem',
+            borderRadius: '8px',
+            border: mainTab === 'retail-details' ? '2px solid #0B1F3A' : '1px solid #CBD5E1',
+            backgroundColor: mainTab === 'retail-details' ? '#0B1F3A' : '#FFFFFF',
+            color: mainTab === 'retail-details' ? '#FFFFFF' : '#475569',
+            fontSize: '0.925rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.55rem',
+            boxShadow: mainTab === 'retail-details' ? '0 4px 12px rgba(11, 31, 58, 0.18)' : 'none',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>🛒</span> Retail Details
+        </button>
+      </div>
+
+      {mainTab === 'customer-details' ? (
+        <>
+          {/* Customer Details View: Summary Cards, Filters & Table */}
+          <CustomerSummaryCards
+            summary={summary}
+            activeDuesFilter={duesFilter}
+            onSelectFilter={setDuesFilter}
+          />
+
+          <CustomerFilters
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            duesFilter={duesFilter}
+            onDuesFilterChange={setDuesFilter}
+            selectedVillage={selectedVillage}
+            onVillageChange={setSelectedVillage}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onResetFilters={handleResetFilters}
+            villages={['All', ...Array.from(new Set(customers.map(c => c.village).filter(Boolean)))]}
+            totalFound={customers.length}
+          />
+
+          {loading ? (
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #E2E8F0',
+              padding: '4rem 2rem',
+              textAlign: 'center',
+            }}>
+              <p style={{ color: '#64748B', fontWeight: '600' }}>Loading Customer Records...</p>
+            </div>
+          ) : (
+            <CustomerTable
+              customers={customers}
+              viewMode={viewMode}
+              onViewProfile={(c) => {
+                setSelectedCustomer(c);
+                setIsProfileOpen(true);
+              }}
+              onReceivePayment={handleOpenReceivePayment}
+              onEditCustomer={handleOpenEditCustomer}
+            />
+          )}
+        </>
+      ) : (
+        /* Retail Details View: Walk-in counter billing, POS receipts & cash turnover */
+        <div>
+          {/* Retail Metric Cards */}
+          {(() => {
+            const totalRetailBills = retailSales.length;
+            const totalRetailRevenue = retailSales.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
+            const totalCashAndDigital = retailSales.reduce((acc, s) => acc + Number(s.paidAmount || 0), 0);
+            const todayStr = new Date().toDateString();
+            const todayRetailTurnover = retailSales
+              .filter(s => new Date(s.date || s.createdAt).toDateString() === todayStr)
+              .reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
+
+            return (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+                gap: '1.25rem',
+                marginBottom: '1.75rem',
+              }}>
+                <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '1.25rem 1.4rem', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(11, 31, 58, 0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Retail Bills</span>
+                    <span style={{ fontSize: '1.35rem' }}>🧾</span>
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0B1F3A', marginTop: '0.35rem' }}>
+                    {totalRetailBills.toLocaleString('en-IN')}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.25rem' }}>Counter & Walk-in Invoices</div>
+                </div>
+
+                <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '1.25rem 1.4rem', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(11, 31, 58, 0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Retail Sales Turnover</span>
+                    <span style={{ fontSize: '1.35rem' }}>🌾</span>
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#059669', marginTop: '0.35rem' }}>
+                    ₹{totalRetailRevenue.toLocaleString('en-IN')}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.25rem' }}>Total Gross Retail Invoiced</div>
+                </div>
+
+                <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '1.25rem 1.4rem', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(11, 31, 58, 0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Cash & Instant Paid</span>
+                    <span style={{ fontSize: '1.35rem' }}>💵</span>
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#2563EB', marginTop: '0.35rem' }}>
+                    ₹{totalCashAndDigital.toLocaleString('en-IN')}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.25rem' }}>Settled Collections</div>
+                </div>
+
+                <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '1.25rem 1.4rem', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(11, 31, 58, 0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Today's Retail Sales</span>
+                    <span style={{ fontSize: '1.35rem' }}>⚡</span>
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#D97706', marginTop: '0.35rem' }}>
+                    ₹{todayRetailTurnover.toLocaleString('en-IN')}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.25rem' }}>Same-day Retail Counter Revenue</div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Retail Search, Filters & Action Bar */}
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            border: '1px solid #E2E8F0',
+            padding: '1.25rem 1.5rem',
+            marginBottom: '1.5rem',
+            boxShadow: '0 1px 3px rgba(11, 31, 58, 0.04)',
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
+          }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+              <div style={{ position: 'relative', minWidth: '260px', flex: '1 1 300px' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search retail bill #, customer name, mobile, item..."
+                  value={retailSearch}
+                  onChange={(e) => setRetailSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.75rem 0.6rem 2.4rem',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Payment Filter Pills */}
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                {[
+                  { id: 'ALL', label: 'All Modes' },
+                  { id: 'CASH', label: '💵 Cash' },
+                  { id: 'UPI', label: '📱 UPI' },
+                  { id: 'CREDIT', label: '🌾 Credit (Khata)' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setRetailPaymentFilter(f.id)}
+                    style={{
+                      padding: '0.45rem 0.85rem',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      border: retailPaymentFilter === f.id ? '1px solid #0B1F3A' : '1px solid #E2E8F0',
+                      backgroundColor: retailPaymentFilter === f.id ? '#0B1F3A' : '#F8FAFC',
+                      color: retailPaymentFilter === f.id ? '#FFFFFF' : '#475569',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => onNavigate && onNavigate('purchase-sales', 'create-sale')}
+                style={{
+                  backgroundColor: '#059669',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '0.6rem 1.15rem',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                }}
+              >
+                <span>🧾</span> + New Retail Bill
+              </button>
+            </div>
+          </div>
+
+          {/* Retail Bills Table */}
+          {retailLoading ? (
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #E2E8F0',
+              padding: '4rem 2rem',
+              textAlign: 'center',
+            }}>
+              <p style={{ color: '#64748B', fontWeight: '600' }}>Loading Retail Transactions...</p>
+            </div>
+          ) : (() => {
+            const filteredRetailSales = retailSales.filter((sale) => {
+              if (retailPaymentFilter !== 'ALL') {
+                const mode = (sale.paymentMethod || 'CASH').toUpperCase();
+                if (!mode.includes(retailPaymentFilter)) return false;
+              }
+              if (retailSearch.trim()) {
+                const q = retailSearch.toLowerCase().trim();
+                const matchInv = (sale.invoiceNumber || sale.id || '').toLowerCase().includes(q);
+                const matchCust = (sale.customerName || '').toLowerCase().includes(q);
+                const matchPhone = (sale.customerPhone || '').toLowerCase().includes(q);
+                const matchVillage = (sale.customerVillage || '').toLowerCase().includes(q);
+                const matchItems = (sale.items || []).some(it => (it.name || it.productName || '').toLowerCase().includes(q));
+                return matchInv || matchCust || matchPhone || matchVillage || matchItems;
+              }
+              return true;
+            });
+
+            if (filteredRetailSales.length === 0) {
+              return (
+                <div style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '12px',
+                  border: '1px solid #E2E8F0',
+                  padding: '3.5rem 2rem',
+                  textAlign: 'center',
+                  boxShadow: '0 1px 3px rgba(11, 31, 58, 0.04)',
+                }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🛒</div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#0B1F3A', margin: '0 0 0.5rem 0' }}>
+                    No Retail Invoices Found
+                  </h3>
+                  <p style={{ color: '#64748B', fontSize: '0.875rem', maxWidth: '420px', margin: '0 auto 1.5rem auto' }}>
+                    {retailSales.length === 0
+                      ? 'No retail transactions recorded yet. Start issuing instant bills to walk-in farmers and counter customers.'
+                      : 'No retail bills match your current search or payment filter.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate && onNavigate('purchase-sales', 'create-sale')}
+                    style={{
+                      backgroundColor: '#059669',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      padding: '0.65rem 1.4rem',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    + Create Retail Bill Now
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '12px',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 1px 3px rgba(11, 31, 58, 0.04)',
+                overflow: 'hidden',
+              }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{
+                        backgroundColor: '#F8FAFC',
+                        borderBottom: '2px solid #E2E8F0',
+                        color: '#475569',
+                        fontSize: '0.8rem',
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}>
+                        <th style={{ padding: '0.9rem 1.15rem' }}>Receipt / Bill #</th>
+                        <th style={{ padding: '0.9rem 1.15rem' }}>Date & Time</th>
+                        <th style={{ padding: '0.9rem 1.15rem' }}>Customer / Farmer</th>
+                        <th style={{ padding: '0.9rem 1.15rem' }}>Items Sold</th>
+                        <th style={{ padding: '0.9rem 1.15rem' }}>Payment Mode</th>
+                        <th style={{ padding: '0.9rem 1.15rem' }}>Total Amount</th>
+                        <th style={{ padding: '0.9rem 1.15rem' }}>Status</th>
+                        <th style={{ padding: '0.9rem 1.15rem', textAlign: 'center' }}>Receipt Action</th>
+                      </tr>
+                    </thead>
+                    <tbody style={{ fontSize: '0.875rem' }}>
+                      {filteredRetailSales.map((sale) => {
+                        const isPaid = sale.status === 'PAID';
+                        const isCredit = sale.paymentMethod === 'CREDIT (KHATA)';
+                        const formattedDate = (() => {
+                          const raw = sale.date || sale.createdAt;
+                          if (!raw) return '—';
+                          const d = new Date(raw);
+                          if (isNaN(d.getTime())) return '—';
+                          return d.toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          });
+                        })();
+
+                        return (
+                          <tr key={sale.id || sale.invoiceNumber} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background-color 0.15s' }}>
+                            <td style={{ padding: '0.9rem 1.15rem', fontFamily: 'monospace', fontWeight: '700', color: '#0B1F3A' }}>
+                              {sale.invoiceNumber || sale.id}
+                            </td>
+
+                            <td style={{ padding: '0.9rem 1.15rem', color: '#475569', whiteSpace: 'nowrap' }}>
+                              <div>{formattedDate}</div>
+                              <div style={{ fontSize: '0.725rem', color: '#94A3B8' }}>Device Timestamp</div>
+                            </td>
+
+                            <td style={{ padding: '0.9rem 1.15rem', fontWeight: '600', color: '#0B1F3A' }}>
+                              <div>{sale.customerName || 'Direct Counter Sale'}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
+                                {sale.customerPhone && <span>📞 {sale.customerPhone}</span>}
+                                {sale.customerVillage && <span>📍 {sale.customerVillage}</span>}
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '0.9rem 1.15rem' }}>
+                              {sale.items && sale.items.length > 0 ? (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                  {sale.items.map((it, idx) => (
+                                    <span key={idx} style={{
+                                      backgroundColor: '#F1F5F9',
+                                      color: '#1E293B',
+                                      padding: '2px 7px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '600',
+                                    }}>
+                                      {it.name || it.productName}: <b>{it.quantity || it.qty}</b>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>—</span>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '0.9rem 1.15rem' }}>
+                              <span style={{
+                                backgroundColor: isCredit ? '#FFFBEB' : '#EFF6FF',
+                                color: isCredit ? '#B45309' : '#1D4ED8',
+                                border: `1px solid ${isCredit ? '#FDE68A' : '#BFDBFE'}`,
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                              }}>
+                                {sale.paymentMethod || 'CASH'}
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '0.9rem 1.15rem', fontWeight: '800', color: '#0B1F3A', fontSize: '0.95rem' }}>
+                              ₹{Number(sale.totalAmount || 0).toLocaleString('en-IN')}
+                            </td>
+
+                            <td style={{ padding: '0.9rem 1.15rem' }}>
+                              <span style={{
+                                backgroundColor: isPaid ? '#DCFCE7' : '#FEE2E2',
+                                color: isPaid ? '#15803D' : '#B91C1C',
+                                border: `1px solid ${isPaid ? '#BBF7D0' : '#FCA5A5'}`,
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                              }}>
+                                {sale.status || (isCredit ? 'UNPAID' : 'PAID')}
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '0.9rem 1.15rem', textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedReceipt(sale);
+                                  setIsReceiptModalOpen(true);
+                                }}
+                                style={{
+                                  backgroundColor: '#FFFFFF',
+                                  color: '#0B1F3A',
+                                  border: '1px solid #CBD5E1',
+                                  padding: '0.45rem 0.85rem',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                <span>🖨️</span> View Receipt
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       )}
 
       {/* 5. Customer Profile Drawer */}
@@ -2039,6 +2739,166 @@ export default function CustomerDetails({ subItem = 'all-customers', onNavigate 
         onClose={() => setIsReceivePaymentOpen(false)}
         onSubmitPayment={handleSubmitPayment}
       />
+
+      {/* 8. Retail Receipt Modal */}
+      {isReceiptModalOpen && selectedReceipt && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(11, 31, 58, 0.65)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '560px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            overflow: 'hidden',
+          }}>
+            {/* Receipt Header */}
+            <div style={{
+              backgroundColor: '#0B1F3A',
+              color: '#FFFFFF',
+              padding: '1.25rem 1.5rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>Fertilizer Shop Management</div>
+                <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Official Retail Cash / Sales Receipt</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReceiptModalOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '1.25rem',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Receipt Body */}
+            <div style={{ padding: '1.5rem', fontSize: '0.875rem', color: '#1E293B' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+                <div>
+                  <div style={{ fontWeight: '700', color: '#0B1F3A' }}>Bill No: {selectedReceipt.invoiceNumber || selectedReceipt.id}</div>
+                  <div style={{ fontSize: '0.775rem', color: '#64748B', marginTop: '2px' }}>
+                    Date: {new Date(selectedReceipt.date || selectedReceipt.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: '700', color: '#0B1F3A' }}>Buyer: {selectedReceipt.customerName || 'Direct Counter Sale'}</div>
+                  {selectedReceipt.customerPhone && (
+                    <div style={{ fontSize: '0.775rem', color: '#64748B' }}>Phone: {selectedReceipt.customerPhone}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1.25rem', textAlign: 'left', fontSize: '0.825rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #E2E8F0', color: '#475569' }}>
+                    <th style={{ padding: '0.5rem 0' }}>Item</th>
+                    <th style={{ padding: '0.5rem 0', textAlign: 'center' }}>Qty</th>
+                    <th style={{ padding: '0.5rem 0', textAlign: 'right' }}>Rate (₹)</th>
+                    <th style={{ padding: '0.5rem 0', textAlign: 'right' }}>Total (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedReceipt.items || []).map((it, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '0.55rem 0', fontWeight: '600' }}>{it.name || it.productName}</td>
+                      <td style={{ padding: '0.55rem 0', textAlign: 'center' }}>{it.quantity || it.qty}</td>
+                      <td style={{ padding: '0.55rem 0', textAlign: 'right' }}>₹{Number(it.price || 0).toFixed(2)}</td>
+                      <td style={{ padding: '0.55rem 0', textAlign: 'right', fontWeight: '700' }}>₹{Number((it.price || 0) * (it.quantity || it.qty || 1)).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Bill Totals */}
+              <div style={{ borderTop: '2px dashed #CBD5E1', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B' }}>
+                  <span>Subtotal:</span>
+                  <span>₹{Number(selectedReceipt.subtotal || selectedReceipt.totalAmount || 0).toFixed(2)}</span>
+                </div>
+                {selectedReceipt.gstAmount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B' }}>
+                    <span>GST ({selectedReceipt.gstRate || 18}%):</span>
+                    <span>₹{Number(selectedReceipt.gstAmount).toFixed(2)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.1rem', color: '#059669', borderTop: '1px solid #E2E8F0', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+                  <span>Net Total:</span>
+                  <span>₹{Number(selectedReceipt.totalAmount || 0).toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#475569', marginTop: '0.35rem' }}>
+                  <span>Payment Mode: <b>{selectedReceipt.paymentMethod || 'CASH'}</b></span>
+                  <span>Status: <b style={{ color: selectedReceipt.status === 'PAID' ? '#059669' : '#DC2626' }}>{selectedReceipt.status || 'PAID'}</b></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{
+              backgroundColor: '#F8FAFC',
+              padding: '1rem 1.5rem',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              borderTop: '1px solid #E2E8F0',
+            }}>
+              <button
+                type="button"
+                onClick={() => setIsReceiptModalOpen(false)}
+                style={{
+                  padding: '0.55rem 1.25rem',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  backgroundColor: '#FFFFFF',
+                  fontWeight: '600',
+                  color: '#475569',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                style={{
+                  padding: '0.55rem 1.35rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#0B1F3A',
+                  color: '#FFFFFF',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                }}
+              >
+                <span>🖨️</span> Print Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,202 +6,9 @@
 const API_BASE_URL = 'http://localhost:5000/api';
 
 // In-memory fallback dataset
-let fallbackProducts = [
-  {
-    id: 'PRD001',
-    code: 'PRD001',
-    name: 'Urea (Neem Coated 46% N)',
-    category: 'Nitrogenous',
-    brand: 'IFFCO',
-    unit: 'bags',
-    stock: 70,
-    minThreshold: 20,
-    costPrice: 245.0,
-    price: 266.5,
-    photo: 'https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=300&auto=format&fit=crop&q=60',
-    hsnCode: '31021000',
-    status: 'In Stock',
-    description: 'Government subsidized Neem Coated Urea in 45kg standard bags.',
-    createdAt: new Date('2026-01-15T09:00:00Z').toISOString(),
-    updatedAt: new Date('2026-10-20T14:30:00Z').toISOString(),
-  },
-  {
-    id: 'PRD002',
-    code: 'PRD002',
-    name: 'DAP (Di-Ammonium Phosphate 18:46:0)',
-    category: 'Phosphatic',
-    brand: 'IFFCO',
-    unit: 'bags',
-    stock: 8,
-    minThreshold: 15,
-    costPrice: 1250.0,
-    price: 1350.0,
-    photo: 'https://images.unsplash.com/photo-1592417817098-8f3d6910985c?w=300&auto=format&fit=crop&q=60',
-    hsnCode: '31053000',
-    status: 'Low Stock',
-    description: 'High phosphorus nutrient fertilizer for root development and germination.',
-    createdAt: new Date('2026-02-10T11:00:00Z').toISOString(),
-    updatedAt: new Date('2026-10-22T10:15:00Z').toISOString(),
-  },
-  {
-    id: 'PRD003',
-    code: 'PRD003',
-    name: 'NPK (10:26:26 Complex)',
-    category: 'Complex',
-    brand: 'Mahadhan',
-    unit: 'bags',
-    stock: 0,
-    minThreshold: 10,
-    costPrice: 1380.0,
-    price: 1470.0,
-    photo: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=300&auto=format&fit=crop&q=60',
-    hsnCode: '31052000',
-    status: 'Out of Stock',
-    description: 'Balanced compound fertilizer suitable for sugarcane, cotton, and vegetables.',
-    createdAt: new Date('2026-03-01T08:30:00Z').toISOString(),
-    updatedAt: new Date('2026-10-23T16:00:00Z').toISOString(),
-  },
-  {
-    id: 'PRD004',
-    code: 'PRD004',
-    name: 'MOP (Muriate of Potash 60% K2O)',
-    category: 'Potassic',
-    brand: 'IPL',
-    unit: 'bags',
-    stock: 24,
-    minThreshold: 15,
-    costPrice: 1580.0,
-    price: 1700.0,
-    photo: 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=300&auto=format&fit=crop&q=60',
-    hsnCode: '31042000',
-    status: 'In Stock',
-    description: 'Potash source critical for crop resistance and fruit sizing.',
-    createdAt: new Date('2026-03-12T10:00:00Z').toISOString(),
-    updatedAt: new Date('2026-10-18T12:00:00Z').toISOString(),
-  },
-  {
-    id: 'PRD005',
-    code: 'PRD005',
-    name: 'SSP (Single Super Phosphate 16% P2O5)',
-    category: 'Phosphatic',
-    brand: 'Khaitan',
-    unit: 'bags',
-    stock: 6,
-    minThreshold: 12,
-    costPrice: 480.0,
-    price: 540.0,
-    photo: 'https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=300&auto=format&fit=crop&q=60',
-    hsnCode: '31031000',
-    status: 'Low Stock',
-    description: 'Enriched with sulfur and calcium for oilseed and pulse crops.',
-    createdAt: new Date('2026-04-05T09:00:00Z').toISOString(),
-    updatedAt: new Date('2026-10-21T11:45:00Z').toISOString(),
-  },
-  {
-    id: 'PRD006',
-    code: 'PRD006',
-    name: 'Zinc Sulphate Monohydrate 33%',
-    category: 'Micronutrients',
-    brand: 'Aries Agro',
-    unit: 'packs (5kg)',
-    stock: 42,
-    minThreshold: 10,
-    costPrice: 380.0,
-    price: 430.0,
-    photo: 'https://images.unsplash.com/photo-1592417817098-8f3d6910985c?w=300&auto=format&fit=crop&q=60',
-    hsnCode: '28332990',
-    status: 'In Stock',
-    description: 'Fast acting chelated micronutrient for curing Khaira disease and zinc deficiency.',
-    createdAt: new Date('2026-04-18T14:00:00Z').toISOString(),
-    updatedAt: new Date('2026-10-19T17:20:00Z').toISOString(),
-  },
-  {
-    id: 'PRD007',
-    code: 'PRD007',
-    name: 'Liquid Bio-NPK Consortium',
-    category: 'Bio-Fertilizers',
-    brand: 'Multiplex',
-    unit: 'bottles (1L)',
-    stock: 55,
-    minThreshold: 15,
-    costPrice: 310.0,
-    price: 380.0,
-    photo: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=300&auto=format&fit=crop&q=60',
-    hsnCode: '31010099',
-    status: 'In Stock',
-    description: 'Nitrogen fixing, phosphate solubilizing & potassium mobilizing bacterial consortia.',
-    createdAt: new Date('2026-05-02T10:00:00Z').toISOString(),
-    updatedAt: new Date('2026-10-23T09:00:00Z').toISOString(),
-  }
-];
+let fallbackProducts = [];
 
-let fallbackMovements = [
-  {
-    id: 'MOV1001',
-    productId: 'PRD001',
-    productName: 'Urea (Neem Coated 46% N)',
-    productCode: 'PRD001',
-    type: 'PURCHASE',
-    changeQty: 100,
-    previousStock: 0,
-    newStock: 100,
-    reason: 'Received shipment from IFFCO Plant',
-    reference: 'PO-2026-4401',
-    createdAt: '2026-10-15T09:30:00Z',
-  },
-  {
-    id: 'MOV1002',
-    productId: 'PRD001',
-    productName: 'Urea (Neem Coated 46% N)',
-    productCode: 'PRD001',
-    type: 'SALE',
-    changeQty: -25,
-    previousStock: 100,
-    newStock: 75,
-    reason: 'Sold to Ramesh Patil & group',
-    reference: 'INV-2026-0885',
-    createdAt: '2026-10-18T14:10:00Z',
-  },
-  {
-    id: 'MOV1003',
-    productId: 'PRD001',
-    productName: 'Urea (Neem Coated 46% N)',
-    productCode: 'PRD001',
-    type: 'ADJUSTMENT',
-    changeQty: -5,
-    previousStock: 75,
-    newStock: 70,
-    reason: 'Torn/damaged bags during warehouse unloading',
-    reference: 'ADJ-2026-004',
-    createdAt: '2026-10-20T14:30:00Z',
-  },
-  {
-    id: 'MOV1004',
-    productId: 'PRD002',
-    productName: 'DAP (Di-Ammonium Phosphate 18:46:0)',
-    productCode: 'PRD002',
-    type: 'SALE',
-    changeQty: -12,
-    previousStock: 20,
-    newStock: 8,
-    reason: 'Retail sale bill',
-    reference: 'INV-2026-0891',
-    createdAt: '2026-10-22T10:15:00Z',
-  },
-  {
-    id: 'MOV1005',
-    productId: 'PRD003',
-    productName: 'NPK (10:26:26 Complex)',
-    productCode: 'PRD003',
-    type: 'SALE',
-    changeQty: -15,
-    previousStock: 15,
-    newStock: 0,
-    reason: 'Stock depleted due to heavy sowing demand',
-    reference: 'INV-2026-0894',
-    createdAt: '2026-10-23T16:00:00Z',
-  }
-];
+let fallbackMovements = [];
 
 function calcStatus(stock, threshold) {
   if (stock <= 0) return 'Out of Stock';
@@ -371,19 +178,21 @@ export const productsStockService = {
     return list;
   },
 
-  // POST /api/inventory/adjustments
-  async createStockAdjustment({ productId, operation, quantity, reason, reference = '' }) {
+  // POST /api/inventory/adjustments (Stock Inward / Retail Purchase / Adjustment)
+  async createStockAdjustment(adjData) {
     try {
       const res = await fetch(`${API_BASE_URL}/inventory/adjustments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, operation, quantity, reason, reference }),
+        body: JSON.stringify(adjData),
       });
       if (res.ok) {
         const json = await res.json();
         return json.data;
       }
     } catch (e) {}
+
+    const { productId, operation = 'ADD', quantity, reason, reference = '', costPrice, unit } = adjData;
 
     const product = fallbackProducts.find(p => p.id === productId || p.code === productId);
     if (!product) throw new Error('Product not found');
@@ -426,5 +235,25 @@ export const productsStockService = {
 
     fallbackMovements.unshift(movement);
     return { product, movement };
+  },
+
+  // DELETE /api/products/:id
+  async deleteProduct(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json.data;
+      }
+    } catch (e) {}
+
+    const idx = fallbackProducts.findIndex(p => p.id === id || p.code === id);
+    if (idx !== -1) {
+      const [removed] = fallbackProducts.splice(idx, 1);
+      return removed;
+    }
+    return null;
   }
 };

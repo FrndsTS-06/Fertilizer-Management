@@ -1,18 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function TopHeader({
-  shopName = "GreenHarvest Agro Fertilizers",
   onSearch,
   onToggleMenu,
+  showMobileMenuButton = false,
+  sidebarWidth = '285px',
+  isMobile = false,
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [clearedNotifications, setClearedNotifications] = useState(false);
 
-  const notifications = [
-    { id: 1, title: 'Low Stock Alert', desc: 'Urea (46% N) - 50kg Bags below 15 units', time: '10m ago', urgent: true },
-    { id: 2, title: 'Payment Due', desc: 'Farmer Ramesh Patil has overdue balance of ₹14,200', time: '1h ago', urgent: false },
-    { id: 3, title: 'Purchase Arrived', desc: 'DAP batch #BN-8842 received from IFFCO', time: '3h ago', urgent: false },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAlerts() {
+      try {
+        const [prodRes, custRes] = await Promise.all([
+          fetch('http://localhost:5000/api/products').catch(() => null),
+          fetch('http://localhost:5000/api/customers').catch(() => null),
+        ]);
+
+        const alerts = [];
+
+        if (prodRes && prodRes.ok) {
+          const prodData = await prodRes.json();
+          if (prodData?.data) {
+            prodData.data.forEach((p) => {
+              const stock = Number(p.stock ?? 0);
+              const threshold = Number(p.minThreshold ?? 10);
+              if (stock <= 0) {
+                alerts.push({
+                  id: `stock-${p.id || p.code}`,
+                  title: 'Stock Empty Alert',
+                  desc: `Your stock is empty (${p.name} is completely out of stock).`,
+                  time: 'Immediate',
+                  urgent: true,
+                });
+              } else if (stock <= threshold) {
+                alerts.push({
+                  id: `stock-${p.id || p.code}`,
+                  title: 'Low Stock Alert',
+                  desc: `Your stock is empty (${p.name} has only ${stock} ${p.unit || 'bags'} remaining).`,
+                  time: 'Active',
+                  urgent: true,
+                });
+              }
+            });
+          }
+        }
+
+        if (custRes && custRes.ok) {
+          const custData = await custRes.json();
+          if (custData?.data) {
+            const highDueCusts = custData.data
+              .filter(c => Number(c.outstandingDues || 0) > 10000)
+              .slice(0, 3);
+            highDueCusts.forEach(c => {
+              alerts.push({
+                id: `due-${c.id}`,
+                title: 'High Khata Due',
+                desc: `Farmer ${c.name} has an outstanding balance of ₹${Number(c.outstandingDues).toLocaleString('en-IN')}`,
+                time: 'Due',
+                urgent: false,
+              });
+            });
+          }
+        }
+
+        if (isMounted) {
+          setNotifications(alerts);
+        }
+      } catch (e) {
+        console.error('Error fetching header notifications:', e);
+      }
+    }
+
+    loadAlerts();
+    return () => { isMounted = false; };
+  }, []);
+
+  const activeNotifications = clearedNotifications ? [] : notifications;
 
   return (
     <header style={{
@@ -22,14 +90,57 @@ export default function TopHeader({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 2rem',
-      position: 'sticky',
+      padding: isMobile ? '0 1rem' : '0 1.75rem',
+      position: 'fixed',
       top: 0,
-      zIndex: 40,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+      left: 0,
+      right: 0,
+      zIndex: 50,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+      width: '100%',
     }}>
       {/* Left: Branding & Tagline */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+        {isMobile && (
+          <button
+            type="button"
+            onClick={onToggleMenu}
+            aria-label="Toggle Navigation Menu"
+            title="Toggle Navigation Menu"
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '8px',
+              backgroundColor: '#F1F5F9',
+              border: '1px solid #CBD5E1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#0B1F3A',
+              padding: 0,
+              flexShrink: 0,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#EFF6FF';
+              e.currentTarget.style.borderColor = '#2563EB';
+              e.currentTarget.style.color = '#2563EB';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#F1F5F9';
+              e.currentTarget.style.borderColor = '#CBD5E1';
+              e.currentTarget.style.color = '#0B1F3A';
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+        )}
         <div style={{
           width: '42px',
           height: '42px',
@@ -41,13 +152,14 @@ export default function TopHeader({
           color: '#ffffff',
           fontWeight: '800',
           fontSize: '1.25rem',
-          boxShadow: '0 4px 10px rgba(5, 150, 105, 0.3)'
+          boxShadow: '0 4px 10px rgba(5, 150, 105, 0.3)',
+          flexShrink: 0,
         }}>
           🌿
         </div>
         <div>
           <h1 style={{
-            fontSize: '1.15rem',
+            fontSize: isMobile ? '1rem' : '1.15rem',
             fontWeight: '700',
             color: '#0f172a',
             lineHeight: 1.2,
@@ -57,7 +169,7 @@ export default function TopHeader({
             Fertilizer Shop Management
           </h1>
           <p style={{
-            fontSize: '0.8rem',
+            fontSize: '0.75rem',
             color: '#059669',
             fontWeight: '600',
             margin: '2px 0 0 0',
@@ -70,7 +182,7 @@ export default function TopHeader({
       </div>
 
       {/* Middle: Quick Search */}
-      <div style={{ flex: '1', maxWidth: '380px', margin: '0 2rem' }}>
+      <div style={{ flex: '1', maxWidth: '420px', margin: isMobile ? '0 0.75rem' : '0 2rem' }}>
         <div style={{
           position: 'relative',
           display: 'flex',
@@ -98,30 +210,7 @@ export default function TopHeader({
       </div>
 
       {/* Right Header Navigation & Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-        {/* Shop Name Badge */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          background: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          padding: '0.4rem 0.85rem',
-          borderRadius: '9999px',
-          color: '#166534',
-          fontSize: '0.85rem',
-          fontWeight: '600'
-        }}>
-          <span style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: '#22c55e',
-            display: 'inline-block'
-          }}></span>
-          <span>{shopName}</span>
-        </div>
-
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1.25rem', flexShrink: 0 }}>
         {/* Notifications Icon with Badge */}
         <div style={{ position: 'relative' }}>
           <button
@@ -146,24 +235,27 @@ export default function TopHeader({
             }}
           >
             🔔
-            <span style={{
-              position: 'absolute',
-              top: '6px',
-              right: '6px',
-              background: '#ef4444',
-              color: '#ffffff',
-              fontSize: '0.65rem',
-              fontWeight: '700',
-              width: '16px',
-              height: '16px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 0 0 2px #ffffff'
-            }}>
-              3
-            </span>
+            {activeNotifications.length > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '6px',
+                right: '6px',
+                background: '#ef4444',
+                color: '#ffffff',
+                fontSize: '0.65rem',
+                fontWeight: '700',
+                minWidth: '16px',
+                height: '16px',
+                padding: '0 3px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 0 0 2px #ffffff'
+              }}>
+                {activeNotifications.length}
+              </span>
+            )}
           </button>
 
           {/* Notifications Dropdown */}
@@ -181,24 +273,39 @@ export default function TopHeader({
               zIndex: 50
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>Notifications</h4>
-                <span style={{ fontSize: '0.75rem', color: '#059669', cursor: 'pointer', fontWeight: '600' }}>Mark all read</span>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#0f172a', fontWeight: '700' }}>
+                  Live System Alerts ({activeNotifications.length})
+                </h4>
+                {activeNotifications.length > 0 && (
+                  <span
+                    onClick={() => setClearedNotifications(true)}
+                    style={{ fontSize: '0.75rem', color: '#059669', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    Clear all
+                  </span>
+                )}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {notifications.map(n => (
-                  <div key={n.id} style={{
-                    padding: '0.6rem',
-                    borderRadius: '8px',
-                    background: n.urgent ? '#fef2f2' : '#f8fafc',
-                    borderLeft: n.urgent ? '3px solid #ef4444' : '3px solid #059669'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong style={{ fontSize: '0.8rem', color: n.urgent ? '#991b1b' : '#1e293b' }}>{n.title}</strong>
-                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{n.time}</span>
-                    </div>
-                    <p style={{ margin: '3px 0 0 0', fontSize: '0.75rem', color: '#475569' }}>{n.desc}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '280px', overflowY: 'auto' }}>
+                {activeNotifications.length === 0 ? (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b', fontSize: '0.8rem' }}>
+                    ✅ No pending alerts or low stock warnings.
                   </div>
-                ))}
+                ) : (
+                  activeNotifications.map(n => (
+                    <div key={n.id} style={{
+                      padding: '0.6rem',
+                      borderRadius: '8px',
+                      background: n.urgent ? '#fef2f2' : '#f8fafc',
+                      borderLeft: n.urgent ? '3px solid #ef4444' : '3px solid #059669'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '0.8rem', color: n.urgent ? '#991b1b' : '#1e293b' }}>{n.title}</strong>
+                        <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{n.time}</span>
+                      </div>
+                      <p style={{ margin: '3px 0 0 0', fontSize: '0.75rem', color: '#475569' }}>{n.desc}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -238,7 +345,7 @@ export default function TopHeader({
             }}>
               DK
             </div>
-            <div style={{ textAlign: 'left' }}>
+            <div style={{ textAlign: 'left', display: isMobile ? 'none' : 'block' }}>
               <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#0f172a' }}>Dileep Kumar</div>
               <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Store Owner</div>
             </div>
@@ -278,28 +385,6 @@ export default function TopHeader({
             </div>
           )}
         </div>
-
-        {/* Logout Button */}
-        <button
-          onClick={() => alert('Logged out successfully')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            background: '#fee2e2',
-            color: '#dc2626',
-            border: 'none',
-            padding: '0.45rem 0.85rem',
-            borderRadius: '8px',
-            fontSize: '0.825rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'background 0.2s',
-          }}
-          title="Sign out of system"
-        >
-          <span>🚪</span> Logout
-        </button>
       </div>
     </header>
   );
