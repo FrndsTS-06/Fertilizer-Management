@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import apiClient from '../services/apiClient';
+import { productsStockService } from '../services/productsStockService';
+import { customerService } from '../services/customerService';
 
 export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
   // Live product, inventory and sales data fetching
@@ -12,29 +15,36 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
     setError(null);
     try {
       const [prodRes, saleRes] = await Promise.all([
-        fetch('http://localhost:5000/api/products'),
-        fetch('http://localhost:5000/api/sales')
+        apiClient.get('/products'),
+        apiClient.get('/sales')
       ]);
 
-      if (!prodRes.ok) {
-        throw new Error(`Products API error: HTTP ${prodRes.status} (${prodRes.statusText})`);
-      }
-      const prodJson = await prodRes.json();
-      if (prodJson && prodJson.success && Array.isArray(prodJson.data)) {
-        setProducts(prodJson.data);
+      if (prodRes && Array.isArray(prodRes.data)) {
+        setProducts(prodRes.data);
       } else {
-        throw new Error(prodJson?.error || 'Invalid product payload structure');
+        throw new Error(prodRes?.message || 'Invalid product payload structure');
       }
 
-      if (saleRes.ok) {
-        const saleJson = await saleRes.json();
-        if (saleJson && saleJson.success && Array.isArray(saleJson.data)) {
-          setSales(saleJson.data);
-        }
+      if (saleRes && Array.isArray(saleRes.data)) {
+        setSales(saleRes.data);
       }
     } catch (err) {
-      console.error('Failed to load dashboard data:', err);
-      setError(err.message || 'Unable to connect to live Fertilizer API at http://localhost:5000');
+      console.warn('Live API unreachable, using local services:', err);
+      try {
+        const [fallbackProds, fallbackSalesList] = await Promise.all([
+          productsStockService.getProducts(),
+          customerService.getAllSales()
+        ]);
+        if (fallbackProds && fallbackProds.length > 0) {
+          setProducts(fallbackProds);
+          setSales(fallbackSalesList || []);
+          setError(null);
+        } else {
+          setError(err.message || `Unable to connect to live Fertilizer API at ${apiClient.getBaseUrl()}`);
+        }
+      } catch (fallbackErr) {
+        setError(err.message || `Unable to connect to live Fertilizer API at ${apiClient.getBaseUrl()}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -149,7 +159,7 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
             Fetching Live Fertilizer Products & Stock Records...
           </div>
           <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-            Querying backend API at http://localhost:5000/api/products
+            Querying backend API at {apiClient.getBaseUrl()}/products
           </div>
         </div>
       )}

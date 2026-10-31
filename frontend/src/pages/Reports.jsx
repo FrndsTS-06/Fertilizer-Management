@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiClient from '../services/apiClient';
 
 /**
  * 05. Reports Page - FTS Navy (#0B1F3A) & Electric Blue (#2563EB)
@@ -6,7 +7,9 @@ import React, { useState, useEffect } from 'react';
  */
 export default function Reports({ subItem = 'stock-report', onNavigate }) {
   const [activeTab, setActiveTab] = useState(subItem || 'stock-report');
-  const [dateRange, setDateRange] = useState('this-month');
+  const [dateRange, setDateRange] = useState('today');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -30,23 +33,14 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
       setLoading(true);
       try {
         const [prodRes, saleRes, custRes] = await Promise.all([
-          fetch('http://localhost:5000/api/products').catch(() => null),
-          fetch('http://localhost:5000/api/sales').catch(() => null),
-          fetch('http://localhost:5000/api/customers').catch(() => null),
+          apiClient.get('/products').catch(() => null),
+          apiClient.get('/sales').catch(() => null),
+          apiClient.get('/customers').catch(() => null),
         ]);
 
-        if (prodRes && prodRes.ok) {
-          const p = await prodRes.json();
-          if (p?.data && isMounted) setProducts(p.data);
-        }
-        if (saleRes && saleRes.ok) {
-          const s = await saleRes.json();
-          if (s?.data && isMounted) setSales(s.data);
-        }
-        if (custRes && custRes.ok) {
-          const c = await custRes.json();
-          if (c?.data && isMounted) setCustomers(c.data);
-        }
+        if (prodRes?.data && isMounted) setProducts(prodRes.data);
+        if (saleRes?.data && isMounted) setSales(saleRes.data);
+        if (custRes?.data && isMounted) setCustomers(custRes.data);
       } catch (err) {
         console.error('Error loading report data:', err);
       } finally {
@@ -57,8 +51,89 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
     return () => { isMounted = false; };
   }, []);
 
-  // Compute live report figures from real backend data
-  const totalTurnover = sales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
+  // Filter sales based on active dateRange (today, this-week, this-month, custom-details)
+  const filteredSales = sales.filter((s) => {
+    const saleDateStr = s.date || s.saleDate || s.sale_date || s.createdAt || s.created_at;
+    if (!saleDateStr) return true;
+    const d = new Date(saleDateStr);
+    if (isNaN(d.getTime())) return true;
+    const now = new Date();
+
+    if (dateRange === 'today') {
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return d >= todayStart && d <= todayEnd;
+    }
+
+    if (dateRange === 'this-week') {
+      const day = now.getDay() || 7; // Monday = 1
+      const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + 1, 0, 0, 0, 0);
+      const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return d >= weekStart && d <= weekEnd;
+    }
+
+    if (dateRange === 'this-month') {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return d >= monthStart && d <= monthEnd;
+    }
+
+    if (dateRange === 'custom-details' || dateRange === 'all-time') {
+      if (customStartDate && customEndDate) {
+        const sDate = new Date(`${customStartDate}T00:00:00.000`);
+        const eDate = new Date(`${customEndDate}T23:59:59.999`);
+        return d >= sDate && d <= eDate;
+      }
+      if (customStartDate) {
+        const sDate = new Date(`${customStartDate}T00:00:00.000`);
+        return d >= sDate;
+      }
+      if (customEndDate) {
+        const eDate = new Date(`${customEndDate}T23:59:59.999`);
+        return d <= eDate;
+      }
+      return true; // All time if no custom dates specified
+    }
+
+    return true;
+  });
+
+  const periodTurnover = filteredSales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
+  const periodDues = filteredSales.reduce((sum, s) => sum + (Number(s.dueAmount) || 0), 0);
+
+  const periodLabel = dateRange === 'today'
+    ? 'Today'
+    : dateRange === 'this-week'
+    ? 'This Week'
+    : dateRange === 'this-month'
+    ? 'This Month'
+    : (customStartDate || customEndDate)
+    ? 'Custom Range'
+    : 'Custom Details (All Time)';
+
+  // Map product sales in active period
+  const productSalesMap = {};
+  filteredSales.forEach(s => {
+    if (Array.isArray(s.items)) {
+      s.items.forEach(it => {
+        const pId = it.productId || it.product_id;
+        const pCode = it.productCode || it.product_code || it.code;
+        const pName = it.productName || it.product_name || it.name;
+        const key = pId || pCode || pName;
+        if (!key) return;
+        if (!productSalesMap[key]) {
+          productSalesMap[key] = { units: 0, revenue: 0 };
+        }
+        productSalesMap[key].units += Number(it.quantity || it.qty || 0);
+        productSalesMap[key].revenue += Number(it.subtotal || it.total || 0);
+        if (pName && !productSalesMap[pName]) {
+          productSalesMap[pName] = productSalesMap[key];
+        }
+      });
+    }
+  });
+
+  // Compute overall customer dues from real backend data
   const totalOutstandingDues = customers.reduce((sum, c) => sum + (Number(c.outstandingDues) || 0), 0);
   const customersWithDues = customers.filter(c => Number(c.outstandingDues || 0) > 0).length;
   
@@ -98,7 +173,7 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
         alert('No stock valuation records to export.');
         return;
       }
-      const headers = ['Product Name', 'Code / SKU', 'Category', 'Brand', 'Package Unit', 'Stock Quantity', 'Purchase Cost (INR)', 'Total Cost Valuation (INR)', 'Selling Price (INR)', 'Total Market Valuation (INR)', 'Expected Profit (INR)', 'Stock Status'];
+      const headers = ['Product Name', 'Category', 'Brand', 'Package Unit', 'Stock Quantity', 'Purchase Cost (INR)', 'Total Cost Valuation (INR)', 'Selling Price (INR)', 'Total Market Valuation (INR)', 'Expected Profit (INR)', 'Stock Status'];
       const rows = filteredStockProducts.map(p => {
         const stock = Number(p.stock) || 0;
         const cost = Number(p.costPrice) || 0;
@@ -108,7 +183,6 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
         const profit = totalRetail - totalCost;
         return [
           `"${p.name || ''}"`,
-          `"${p.code || ''}"`,
           `"${p.category || ''}"`,
           `"${p.brand || ''}"`,
           `"${p.unit || ''}"`,
@@ -130,12 +204,12 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
       link.click();
       document.body.removeChild(link);
     } else if (activeTab === 'sales-report') {
-      if (sales.length === 0) {
-        alert('No sales records to export.');
+      if (filteredSales.length === 0) {
+        alert('No sales records to export for selected timeframe.');
         return;
       }
       const headers = ['Invoice No', 'Customer Name', 'Buyer GSTIN', 'Date', 'Subtotal (INR)', 'GST Amount (INR)', 'Total Amount (INR)', 'Payment Method', 'Status'];
-      const rows = sales.map(s => [
+      const rows = filteredSales.map(s => [
         `"${s.invoiceNumber || s.id || ''}"`,
         `"${s.customerName || 'Walk-in'}"`,
         `"${s.gstId || 'N/A'}"`,
@@ -149,7 +223,7 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
       const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
       const link = document.createElement('a');
       link.setAttribute('href', encodeURI(csvContent));
-      link.setAttribute('download', `Sales_Report_${Date.now()}.csv`);
+      link.setAttribute('download', `Sales_Report_${periodLabel.replace(/\s+/g, '_')}_${Date.now()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -291,36 +365,114 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#0B1F3A' }}>Timeframe:</span>
-          {['today', 'this-week', 'this-month', 'all-time'].map((range) => (
-            <button
-              key={range}
-              type="button"
-              onClick={() => setDateRange(range)}
-              style={{
-                background: dateRange === range ? '#EFF6FF' : 'transparent',
-                color: dateRange === range ? '#2563EB' : '#64748B',
-                border: dateRange === range ? '1.5px solid #2563EB' : '1px solid #E2E8F0',
-                padding: '0.35rem 0.75rem',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-                cursor: 'pointer',
-              }}
-            >
-              {range.replace('-', ' ').toUpperCase()}
-            </button>
-          ))}
+          {[
+            { id: 'today', label: 'TODAY' },
+            { id: 'this-week', label: 'THIS WEEK' },
+            { id: 'this-month', label: 'THIS MONTH' },
+            { id: 'custom-details', label: 'CUSTOM DETAILS' },
+          ].map((item) => {
+            const isSelected = dateRange === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setDateRange(item.id)}
+                style={{
+                  background: isSelected ? '#EFF6FF' : 'transparent',
+                  color: isSelected ? '#2563EB' : '#64748B',
+                  border: isSelected ? '1.5px solid #2563EB' : '1px solid #CBD5E1',
+                  padding: '0.4rem 0.85rem',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  boxShadow: isSelected ? '0 1px 3px rgba(37, 99, 235, 0.15)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+
+          {/* Date Range Pickers for Custom Details */}
+          {dateRange === 'custom-details' && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', marginLeft: '0.25rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '700' }}>From:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1.5px solid #2563EB',
+                  fontSize: '0.8rem',
+                  color: '#0B1F3A',
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '700' }}>To:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1.5px solid #2563EB',
+                  fontSize: '0.8rem',
+                  color: '#0B1F3A',
+                  outline: 'none',
+                }}
+              />
+              {(customStartDate || customEndDate) && (
+                <button
+                  type="button"
+                  onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
+                  title="Clear custom dates (Show all-time data)"
+                  style={{
+                    backgroundColor: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    color: '#DC2626',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear ✕
+                </button>
+              )}
+            </div>
+          )}
         </div>
-        <div style={{
-          fontSize: '0.8rem',
-          color: '#2563EB',
-          backgroundColor: '#EFF6FF',
-          padding: '0.35rem 0.85rem',
-          borderRadius: '20px',
-          fontWeight: '700',
-          border: '1px solid #BFDBFE',
-        }}>
-          Active View: {activeTab.replace('-', ' ').toUpperCase()}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{
+            fontSize: '0.8rem',
+            color: '#15803D',
+            backgroundColor: '#F0FDF4',
+            padding: '0.35rem 0.85rem',
+            borderRadius: '20px',
+            fontWeight: '700',
+            border: '1px solid #BBF7D0',
+          }}>
+            📅 {periodLabel} ({filteredSales.length} Invoices)
+          </div>
+
+          <div style={{
+            fontSize: '0.8rem',
+            color: '#2563EB',
+            backgroundColor: '#EFF6FF',
+            padding: '0.35rem 0.85rem',
+            borderRadius: '20px',
+            fontWeight: '700',
+            border: '1px solid #BFDBFE',
+          }}>
+            Active View: {activeTab.replace('-', ' ').toUpperCase()}
+          </div>
         </div>
       </div>
 
@@ -332,7 +484,7 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
             {loading ? '...' : `₹${totalStockRetailValuation.toLocaleString('en-IN')}`}
           </div>
           <div style={{ fontSize: '0.775rem', color: '#64748B', marginTop: '0.35rem' }}>
-            {products.length} cataloged SKUs ({totalStockUnits.toLocaleString('en-IN')} total units)
+            {products.length} cataloged products ({totalStockUnits.toLocaleString('en-IN')} total units)
           </div>
         </div>
 
@@ -357,12 +509,14 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
         </div>
 
         <div style={{ background: '#FFFFFF', padding: '1.25rem', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>Verified Sales & Invoiced Turnover</div>
+          <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>
+            Verified Sales & Invoiced Turnover ({periodLabel})
+          </div>
           <div style={{ fontSize: '1.65rem', fontWeight: '900', color: '#0B1F3A', marginTop: '0.35rem', letterSpacing: '-0.02em' }}>
-            {loading ? '...' : `₹${totalTurnover.toLocaleString('en-IN')}`}
+            {loading ? '...' : `₹${periodTurnover.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           </div>
           <div style={{ fontSize: '0.775rem', color: '#64748B', marginTop: '0.35rem' }}>
-            {sales.length} invoices ({totalOutstandingDues > 0 ? `Dues: ₹${totalOutstandingDues.toLocaleString('en-IN')}` : '0 outstanding dues'})
+            {filteredSales.length} invoice{filteredSales.length === 1 ? '' : 's'} {periodDues > 0 ? `(Dues: ₹${periodDues.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : '(0 outstanding dues)'}
           </div>
         </div>
       </div>
@@ -439,7 +593,7 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
               {/* Search */}
               <input
                 type="text"
-                placeholder="Search Product / SKU..."
+                placeholder="Search Product..."
                 value={stockSearch}
                 onChange={(e) => setStockSearch(e.target.value)}
                 style={{
@@ -475,7 +629,6 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', color: '#475569', fontSize: '0.775rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     <th style={{ padding: '0.85rem 1.25rem' }}>Product & Brand</th>
-                    <th style={{ padding: '0.85rem 1rem' }}>Code / SKU</th>
                     <th style={{ padding: '0.85rem 1rem' }}>Package Unit</th>
                     <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Stock Qty</th>
                     <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Cost Price</th>
@@ -496,9 +649,10 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
                     const rowProfit = Math.max(0, rowRetailValuation - rowCostValuation);
                     const rowMargin = rowRetailValuation > 0 ? ((rowProfit / rowRetailValuation) * 100).toFixed(1) : 0;
                     const badge = getStatusBadge(p.status);
+                    const soldUnits = productSalesMap[p.id]?.units || productSalesMap[p.code]?.units || productSalesMap[p.name]?.units || 0;
 
                     return (
-                      <tr key={p.id || p.code} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      <tr key={p.id || p.name} style={{ borderBottom: '1px solid #F1F5F9' }}>
                         <td style={{ padding: '0.85rem 1.25rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             {p.photo ? (
@@ -520,14 +674,16 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
                             </div>
                           </div>
                         </td>
-                        <td style={{ padding: '0.85rem 1rem', fontFamily: 'monospace', fontWeight: '700', color: '#2563EB' }}>
-                          {p.code}
-                        </td>
                         <td style={{ padding: '0.85rem 1rem', fontWeight: '600', color: '#475569' }}>
                           {p.unit}
                         </td>
                         <td style={{ padding: '0.85rem 1rem', textAlign: 'right', fontWeight: '800', color: stock <= (p.minThreshold || 5) ? '#DC2626' : '#0F172A' }}>
-                          {stock.toLocaleString('en-IN')}
+                          <div>{stock.toLocaleString('en-IN')}</div>
+                          {soldUnits > 0 && (
+                            <div style={{ fontSize: '0.7rem', color: '#16A34A', fontWeight: '700' }}>
+                              ({soldUnits} sold {periodLabel.toLowerCase()})
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '0.85rem 1rem', textAlign: 'right', color: '#475569' }}>
                           ₹{costPrice.toFixed(2)}
@@ -570,7 +726,7 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
                 {/* Totals Summary Footer Row */}
                 <tfoot>
                   <tr style={{ backgroundColor: '#F8FAFC', borderTop: '2px solid #CBD5E1', fontWeight: '800', fontSize: '0.875rem' }}>
-                    <td colSpan="3" style={{ padding: '1rem 1.25rem', color: '#0B1F3A' }}>
+                    <td colSpan="2" style={{ padding: '1rem 1.25rem', color: '#0B1F3A' }}>
                       TOTAL SUMMARY ({filteredStockProducts.length} Items Listed)
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'right', color: '#0B1F3A' }}>
@@ -610,14 +766,16 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
             </p>
           </div>
 
-          {sales.length === 0 ? (
+          {filteredSales.length === 0 ? (
             <div style={{ padding: '3.5rem 1.5rem', textAlign: 'center', color: '#64748B' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📄</div>
               <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#0B1F3A', margin: '0 0 0.5rem 0' }}>
-                No Verified Sales Invoices Yet
+                No Verified Sales Invoices For {periodLabel}
               </h3>
               <p style={{ fontSize: '0.875rem' }}>
-                Completed bills created in Purchase & Sales will appear here automatically.
+                {sales.length === 0
+                  ? 'Completed bills created in Purchase & Sales will appear here automatically.'
+                  : `No invoices were recorded during ${periodLabel.toLowerCase()}. Select "CUSTOM DETAILS" or another timeframe to view other records.`}
               </p>
             </div>
           ) : (
@@ -636,7 +794,7 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
                   </tr>
                 </thead>
                 <tbody style={{ fontSize: '0.85rem' }}>
-                  {sales.map((s) => (
+                  {filteredSales.map((s) => (
                     <tr key={s.id || s.invoiceNumber} style={{ borderBottom: '1px solid #F1F5F9' }}>
                       <td style={{ padding: '0.85rem 1.25rem', fontFamily: 'monospace', fontWeight: '700', color: '#2563EB' }}>
                         {s.invoiceNumber || s.id}
@@ -679,6 +837,25 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
                     </tr>
                   ))}
                 </tbody>
+
+                {/* Sales Totals Summary Footer */}
+                <tfoot>
+                  <tr style={{ backgroundColor: '#F8FAFC', borderTop: '2px solid #CBD5E1', fontWeight: '800', fontSize: '0.875rem' }}>
+                    <td colSpan="3" style={{ padding: '1rem 1.25rem', color: '#0B1F3A' }}>
+                      PERIOD TOTAL ({filteredSales.length} Invoices — {periodLabel})
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'right', color: '#0B1F3A' }}>
+                      ₹{filteredSales.reduce((sum, s) => sum + (Number(s.subtotal) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'right', color: '#2563EB' }}>
+                      ₹{filteredSales.reduce((sum, s) => sum + (Number(s.gstAmount) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'right', color: '#0B1F3A' }}>
+                      ₹{periodTurnover.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td colSpan="2" style={{ padding: '1rem' }}></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
@@ -717,14 +894,21 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
                     <th style={{ padding: '0.85rem 1.25rem' }}>Farmer / Customer</th>
                     <th style={{ padding: '0.85rem 1rem' }}>Phone Number</th>
                     <th style={{ padding: '0.85rem 1rem' }}>Village / Location</th>
-                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Credit Limit</th>
+                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Amount Paid</th>
                     <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Total Purchases</th>
                     <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Outstanding Due</th>
                   </tr>
                 </thead>
                 <tbody style={{ fontSize: '0.85rem' }}>
                   {customers.map((c) => {
-                    const dues = Number(c.outstandingDues) || 0;
+                    const totalPurchases = Number(c.totalPurchases || c.total_purchases || 0);
+                    const dues = Number(c.outstandingDues || c.outstanding_dues || 0);
+                    const paid = c.totalPaid !== undefined && c.totalPaid !== null
+                      ? Number(c.totalPaid)
+                      : (c.total_paid !== undefined && c.total_paid !== null
+                        ? Number(c.total_paid)
+                        : Math.max(0, totalPurchases - dues));
+
                     return (
                       <tr key={c.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                         <td style={{ padding: '0.85rem 1.25rem', fontWeight: '700', color: '#0B1F3A' }}>
@@ -736,14 +920,14 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
                         <td style={{ padding: '0.85rem 1rem', color: '#475569' }}>
                           {c.village || '—'}
                         </td>
-                        <td style={{ padding: '0.85rem 1rem', textAlign: 'right', color: '#64748B' }}>
-                          ₹{Number(c.creditLimit || 0).toLocaleString('en-IN')}
+                        <td style={{ padding: '0.85rem 1rem', textAlign: 'right', fontWeight: '700', color: '#15803D' }}>
+                          ₹{paid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '0.85rem 1rem', textAlign: 'right', fontWeight: '600' }}>
-                          ₹{Number(c.totalPurchases || 0).toLocaleString('en-IN')}
+                          ₹{totalPurchases.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', fontWeight: '800', color: dues > 0 ? '#DC2626' : '#166534' }}>
-                          {dues > 0 ? `₹${dues.toLocaleString('en-IN')}` : '₹0 (Cleared)'}
+                          {dues > 0 ? `₹${dues.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00 (Cleared)'}
                         </td>
                       </tr>
                     );

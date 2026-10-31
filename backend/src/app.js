@@ -1,48 +1,86 @@
 const express = require('express');
 const cors = require('cors');
+const config = require('./config');
+const requestLogger = require('./middleware/requestLogger');
+const errorHandler = require('./middleware/errorHandler');
+const apiRoutes = require('./routes');
+const healthRoutes = require('./routes/health.routes');
 
 const app = express();
 
-// Global Middlewares
-app.use(cors());
-app.use(express.json());
+// ==========================================
+// 0. Baseline Security Headers & Hardening
+// ==========================================
+app.disable('x-powered-by');
 
-// Health Check
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Modular Routes
-app.use('/api/products', require('./modules/products/products.routes'));
-app.use('/api/inventory', require('./modules/inventory/inventory.routes'));
-app.use('/api/customers', require('./modules/customers/customers.routes'));
-
-// Sales & payments routes
-const customersController = require('./modules/customers/customers.controller');
-app.get('/api/sales', customersController.getAllSales);
-app.post('/api/sales', customersController.createSale);
-app.get('/api/payments', customersController.getAllPayments);
-app.post('/api/sales/:id/payments', customersController.recordSalePayment);
-
-// app.use('/api/auth', require('./modules/auth/routes'));
-// app.use('/api/purchases', require('./modules/purchases/routes'));
-// app.use('/api/sales', require('./modules/sales/routes'));
-// app.use('/api/payments', require('./modules/payments/routes'));
-// app.use('/api/reports', require('./modules/reports/routes'));
-
-// 404 Handler
 app.use((req, res, next) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (config.isProduction) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
 });
 
-// Error Handling Middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message || 'Internal Server Error',
-    },
+// ==========================================
+// 1. HTTP Request Logging (Sanitized)
+// ==========================================
+app.use(requestLogger);
+
+// ==========================================
+// 2. CORS Configuration
+// ==========================================
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser clients (e.g. tests, curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    const allowed = config.cors.allowedOrigins;
+    if (allowed.includes('*') || allowed.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS policy does not allow access from origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+
+// ==========================================
+// 3. Body Parsing Middlewares
+// ==========================================
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ==========================================
+// 4. API Routes & Versioning Conventions
+// ==========================================
+// Primary API router (matches frontend baseURL: http://localhost:5000/api)
+app.use('/api', apiRoutes);
+
+// Forward-compatible versioned route alias (/api/v1/...)
+app.use('/api/v1', apiRoutes);
+
+// Top-level /health route alias for orchestrators & container probes
+app.use('/health', healthRoutes);
+
+// ==========================================
+// 5. 404 Not Found Handler
+// ==========================================
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    message: `Resource not found: ${req.method} ${req.originalUrl}`,
   });
 });
+
+// ==========================================
+// 6. Centralized Error-Handling Middleware
+// ==========================================
+app.use(errorHandler);
 
 module.exports = app;

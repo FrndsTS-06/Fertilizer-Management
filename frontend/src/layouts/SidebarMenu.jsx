@@ -147,7 +147,7 @@ export const MENU_DATA = [
   {
     id: 'customer-details',
     number: '04',
-    title: 'Customer Details',
+    title: 'Customer & Retail Details',
     subtitle: 'Customer Accounts and Payments',
     icon: '👥',
   },
@@ -335,8 +335,8 @@ export default function SidebarMenu({
                   backgroundColor: isCurrentSection
                     ? 'rgba(37, 99, 235, 0.24)'
                     : isHovered
-                    ? 'rgba(30, 41, 59, 0.8)'
-                    : 'transparent',
+                      ? 'rgba(30, 41, 59, 0.8)'
+                      : 'transparent',
                   color: '#FFFFFF',
                   cursor: 'pointer',
                   textAlign: 'left',

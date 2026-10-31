@@ -1,249 +1,133 @@
 /**
  * Service layer for Customer Management, Invoices & Khata Payments
- * Supports both live backend REST API and seamless client-side state caching
+ * Powered by centralized apiClient with live backend REST API integration.
+ * Communicates directly with PostgreSQL via /api/customers, /api/sales, and /api/payments.
  */
-
-const API_BASE_URL = 'http://localhost:5000/api';
-
-// In-memory fallback dataset
-let fallbackCustomers = [];
-let fallbackSales = [];
-let fallbackPayments = [];
+import apiClient from './apiClient';
 
 export const customerService = {
-  // GET /api/customers
-  async getCustomers({ search = '', duesOnly = 'all', village = 'All' } = {}) {
-    try {
-      const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      if (duesOnly) params.append('duesOnly', duesOnly);
-      if (village && village !== 'All') params.append('village', village);
+  /**
+   * GET /api/customers
+   * Retrieve real customer records joined with v_customer_balances
+   */
+  async getCustomers({ search = '', duesOnly = 'all', village = 'All', dateFilter = 'all', sortBy = 'latest_activity', sortOrder = 'DESC', page = 1, limit = 50 } = {}) {
+    const params = {};
+    if (search && search.trim()) params.search = search.trim();
+    if (duesOnly) params.duesOnly = duesOnly;
+    if (village && village !== 'All') params.village = village;
+    if (dateFilter && dateFilter !== 'all') params.dateFilter = dateFilter;
+    if (sortBy) params.sortBy = sortBy;
+    if (sortOrder) params.sortOrder = sortOrder;
+    if (page) params.page = page;
+    if (limit) params.limit = limit;
 
-      const res = await fetch(`${API_BASE_URL}/customers?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        return { data: json.data, summary: json.summary };
-      }
-    } catch (e) {}
-
-    // Fallback filtering
-    let list = [...fallbackCustomers];
-    if (search && search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter(c =>
-        c.name.toLowerCase().includes(q) ||
-        (c.phone && c.phone.includes(q)) ||
-        (c.village && c.village.toLowerCase().includes(q))
-      );
-    }
-    if (duesOnly === 'true' || duesOnly === 'has-dues') {
-      list = list.filter(c => c.outstandingDues > 0);
-    } else if (duesOnly === 'cleared') {
-      list = list.filter(c => c.outstandingDues === 0);
-    }
-    if (village && village !== 'All') {
-      list = list.filter(c => c.village.toLowerCase() === village.toLowerCase());
-    }
-
-    const totalCustomers = fallbackCustomers.length;
-    const totalOutstandingDues = fallbackCustomers.reduce((sum, c) => sum + (c.outstandingDues || 0), 0);
-    const customersWithDues = fallbackCustomers.filter(c => c.outstandingDues > 0).length;
-    const totalPaymentsReceived = fallbackPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
-    const enrichedList = list.map(c => ({
-      ...c,
-      totalPaid: Math.max(0, (c.totalPurchases || 0) - (c.outstandingDues || 0)),
-    }));
-
+    const res = await apiClient.get('/customers', params);
+    const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
     return {
-      data: enrichedList,
-      summary: {
-        totalCustomers,
-        totalOutstandingDues,
-        customersWithDues,
-        totalPaymentsReceived,
-        clearedCustomers: totalCustomers - customersWithDues,
-      },
+      data: list,
+      summary: res?.summary || null,
+      pagination: res?.pagination || null,
     };
   },
 
-  // GET /api/customers/:id
+  /**
+   * GET /api/customers/:id
+   * Retrieve single customer by UUID or customer_code
+   */
   async getCustomerById(id) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/customers/${id}`);
-      if (res.ok) {
-        const json = await res.json();
-        return json.data;
-      }
-    } catch (e) {}
-    return fallbackCustomers.find(c => c.id === id) || null;
+    if (!id) return null;
+    const res = await apiClient.get(`/customers/${id}`);
+    return res?.data || res || null;
   },
 
-  // POST /api/customers
+  /**
+   * POST /api/customers
+   * Register a new customer in PostgreSQL database
+   */
   async createCustomer(customerData) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/customers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(customerData),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        return json.data;
-      }
-    } catch (e) {}
-
-    const newId = `CUST${String(fallbackCustomers.length + 1).padStart(3, '0')}`;
-    const total = Number(customerData.totalPayment) || 0;
-    const paid = Number(customerData.paidAmount) || 0;
-    const due = customerData.duePayment !== undefined && customerData.duePayment !== ''
-      ? Number(customerData.duePayment)
-      : Math.max(0, total - paid);
-    const newCustomer = {
-      ...customerData,
-      id: newId,
-      totalPurchases: total,
-      totalPaid: paid,
-      outstandingDues: due,
-      createdAt: customerData.date ? new Date(customerData.date).toISOString() : new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    fallbackCustomers.unshift(newCustomer);
-    return newCustomer;
+    const res = await apiClient.post('/customers', customerData);
+    return res?.data || res;
   },
 
-  // PATCH /api/customers/:id
+  /**
+   * PATCH /api/customers/:id
+   * Update customer profile in PostgreSQL database
+   */
   async updateCustomer(id, customerData) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(customerData),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        return json.data;
-      }
-    } catch (e) {}
-
-    const idx = fallbackCustomers.findIndex(c => c.id === id);
-    if (idx !== -1) {
-      const existing = fallbackCustomers[idx];
-      const total = customerData.totalPayment !== undefined ? Number(customerData.totalPayment) : existing.totalPurchases;
-      const paid = customerData.paidAmount !== undefined ? Number(customerData.paidAmount) : (existing.totalPaid || 0);
-      const due = customerData.duePayment !== undefined && customerData.duePayment !== ''
-        ? Number(customerData.duePayment)
-        : (existing.outstandingDues !== undefined ? existing.outstandingDues : Math.max(0, total - paid));
-
-      fallbackCustomers[idx] = {
-        ...existing,
-        ...customerData,
-        totalPurchases: total,
-        totalPaid: paid,
-        outstandingDues: due,
-        createdAt: customerData.date ? new Date(customerData.date).toISOString() : existing.createdAt,
-        updatedAt: new Date().toISOString(),
-      };
-      return fallbackCustomers[idx];
-    }
-    return null;
+    const res = await apiClient.patch(`/customers/${id}`, customerData);
+    return res?.data || res;
   },
 
-  // GET /api/customers/:id/sales
+  /**
+   * DELETE /api/customers/:id
+   * Archive / Delete customer record from PostgreSQL database
+   */
+  async deleteCustomer(id) {
+    const res = await apiClient.delete(`/customers/${id}`);
+    return res?.data || res;
+  },
+
+  /**
+   * GET /api/customers/:id/sales
+   * Retrieve all sales invoices for this customer
+   */
   async getCustomerSales(id) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/customers/${id}/sales`);
-      if (res.ok) {
-        const json = await res.json();
-        return json.data;
-      }
-    } catch (e) {}
-    return fallbackSales.filter(s => s.customerId === id);
+    if (!id) return [];
+    const res = await apiClient.get(`/customers/${id}/sales`);
+    return Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
   },
 
-  // GET /api/customers/:id/payments
+  /**
+   * GET /api/customers/:id/payments
+   * Retrieve all payments/receipts recorded for this customer
+   */
   async getCustomerPayments(id) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/customers/${id}/payments`);
-      if (res.ok) {
-        const json = await res.json();
-        return json.data;
-      }
-    } catch (e) {}
-    return fallbackPayments.filter(p => p.customerId === id);
+    if (!id) return [];
+    const res = await apiClient.get(`/customers/${id}/payments`);
+    return Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
   },
 
-  // GET /api/customers/:id/balance
+  /**
+   * GET /api/customers/:id/balance
+   * Single source of truth Khata balance and unpaid invoices breakdown
+   */
   async getCustomerBalance(id) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/customers/${id}/balance`);
-      if (res.ok) {
-        const json = await res.json();
-        return json.data;
-      }
-    } catch (e) {}
-
-    const customer = fallbackCustomers.find(c => c.id === id);
-    const unpaidSales = fallbackSales.filter(s => s.customerId === id && s.dueAmount > 0);
-
-    return {
-      customerId: id,
-      customerName: customer?.name || '',
-      creditLimit: customer?.creditLimit || 0,
-      totalPurchases: customer?.totalPurchases || 0,
-      totalOutstandingDues: customer?.outstandingDues || 0,
-      availableCredit: Math.max(0, (customer?.creditLimit || 0) - (customer?.outstandingDues || 0)),
-      unpaidInvoices: unpaidSales,
-    };
+    if (!id) return null;
+    const res = await apiClient.get(`/customers/${id}/balance`);
+    return res?.data || res || null;
   },
 
-  // POST /api/sales/:id/payments
+  /**
+   * POST /api/sales/:id/payments
+   * Record payment against a specific invoice
+   */
   async recordInvoicePayment(saleId, { amount, method = 'CASH', reference = '', notes = '' }) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/sales/${saleId}/payments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, method, reference, notes }),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        return json.data;
-      }
-    } catch (e) {}
-
-    const sale = fallbackSales.find(s => s.id === saleId || s.invoiceNumber === saleId);
-    if (!sale) throw new Error('Invoice not found');
-
-    const payAmount = Number(amount);
-    if (payAmount > sale.dueAmount) throw new Error(`Amount ₹${payAmount} exceeds due ₹${sale.dueAmount}`);
-
-    sale.paidAmount += payAmount;
-    sale.dueAmount = Math.max(0, sale.totalAmount - sale.paidAmount);
-    sale.status = sale.dueAmount === 0 ? 'PAID' : 'PARTIAL';
-
-    const newPayment = {
-      id: `PAY-${Date.now().toString().slice(-4)}`,
-      receiptNumber: `REC-${Date.now().toString().slice(-6)}`,
-      customerId: sale.customerId,
-      customerName: sale.customerName,
-      saleId: sale.id,
-      invoiceNumber: sale.invoiceNumber,
-      amount: payAmount,
-      method: method.toUpperCase(),
-      reference: reference || `TXN-${Date.now().toString().slice(-4)}`,
-      date: new Date().toISOString(),
+    const res = await apiClient.post(`/sales/${saleId}/payments`, {
+      amount: Number(amount),
+      paymentMethod: method,
+      method: method,
+      referenceNo: reference,
+      reference: reference,
       notes,
-    };
+    });
+    return res?.data || res;
+  },
 
-    fallbackPayments.unshift(newPayment);
+  /**
+   * GET /api/sales
+   * List all sales from backend database
+   */
+  async getAllSales(params = null) {
+    const res = await apiClient.get('/sales', params);
+    return Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+  },
 
-    // Recalculate customer due
-    const cust = fallbackCustomers.find(c => c.id === sale.customerId);
-    if (cust) {
-      const cSales = fallbackSales.filter(s => s.customerId === cust.id);
-      cust.outstandingDues = cSales.reduce((sum, s) => sum + s.dueAmount, 0);
-    }
-
-    return { payment: newPayment, updatedSale: sale };
-  }
+  /**
+   * GET /api/payments
+   * List all payment receipts from backend database
+   */
+  async getAllPayments(params = null) {
+    const res = await apiClient.get('/payments', params);
+    return Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+  },
 };

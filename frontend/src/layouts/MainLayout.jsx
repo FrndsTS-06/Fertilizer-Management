@@ -5,6 +5,7 @@ import SidebarMenu, { MENU_DATA } from './SidebarMenu';
 export default function MainLayout({
   activeMenu,
   onSelectMenu,
+  onSearch,
   children
 }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -80,11 +81,12 @@ export default function MainLayout({
 
       {/* 2. Fixed Top Header */}
       <TopHeader
-        onSearch={(query) => console.log('Searching:', query)}
+        onSearch={onSearch}
         onToggleMenu={handleToggleMenu}
         showMobileMenuButton={isMobile}
         sidebarWidth={sidebarWidth}
         isMobile={isMobile}
+        onNavigate={onSelectMenu}
       />
 
       {/* 3. Scrollable Main Dashboard Content Area */}

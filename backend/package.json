@@ -6,15 +6,23 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "test": "node --test --test-concurrency=1 tests/**/*.test.js",
+    "db:check": "node src/config/db.js",
+    "migrate:status": "node src/database/migrate.js --status",
+    "migrate": "node src/database/migrate.js --apply",
+    "migrate:verify": "node src/database/migrate.js --verify",
+    "seed:test-user": "node scripts/createTestUser.js",
     "prisma:generate": "prisma generate --schema=../prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=../prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^5.19.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.4",
