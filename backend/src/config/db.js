@@ -5,17 +5,27 @@ const config = require('./index');
  * PostgreSQL Connection Pool Configuration
  * Utilizes centralized configuration with defensive defaults.
  */
-const poolConfig = {
-  host: config.db.host,
-  port: config.db.port,
-  database: config.db.database,
-  user: config.db.user,
-  password: config.db.password,
-  max: config.db.max,
-  min: config.db.min,
-  idleTimeoutMillis: config.db.idleTimeoutMillis,
-  connectionTimeoutMillis: config.db.connectionTimeoutMillis,
-};
+const poolConfig = config.db.connectionString
+  ? {
+      connectionString: config.db.connectionString,
+      ssl: { rejectUnauthorized: false },
+      max: config.db.max,
+      min: config.db.min,
+      idleTimeoutMillis: config.db.idleTimeoutMillis,
+      connectionTimeoutMillis: config.db.connectionTimeoutMillis,
+    }
+  : {
+      host: config.db.host,
+      port: config.db.port,
+      database: config.db.database,
+      user: config.db.user,
+      password: config.db.password,
+      ssl: config.db.ssl ? { rejectUnauthorized: false } : false,
+      max: config.db.max,
+      min: config.db.min,
+      idleTimeoutMillis: config.db.idleTimeoutMillis,
+      connectionTimeoutMillis: config.db.connectionTimeoutMillis,
+    };
 
 // Create reusable connection pool
 const pool = new Pool(poolConfig);
