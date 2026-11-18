@@ -135,15 +135,19 @@ export default function Login({ onNavigate }) {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '56px',
-            height: '56px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-            fontSize: '1.75rem',
+            width: '68px',
+            height: '68px',
+            borderRadius: '16px',
+            background: '#FFFFFF',
+            padding: '6px',
             marginBottom: '0.75rem',
-            boxShadow: '0 6px 16px rgba(5, 150, 105, 0.4)',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.25)',
           }}>
-            🌿
+            <img
+              src="/logo.png"
+              alt="Fertilizer Shop Management Logo"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
           </div>
           <h2 style={{
             color: '#FFFFFF',

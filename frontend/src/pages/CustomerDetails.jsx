@@ -3987,9 +3987,12 @@ export default function CustomerDetails({ subItem = 'all-customers', onNavigate,
               justifyContent: 'space-between',
               alignItems: 'center',
             }}>
-              <div>
-                <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>Fertilizer Shop Management</div>
-                <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Official Retail Cash / Sales Receipt</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <img src="/logo.png" alt="Logo" style={{ width: '32px', height: '32px', objectFit: 'contain', background: '#FFFFFF', borderRadius: '8px', padding: '3px' }} />
+                <div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>Fertilizer Shop Management</div>
+                  <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Official Retail Cash / Sales Receipt</div>
+                </div>
               </div>
               <button
                 type="button"

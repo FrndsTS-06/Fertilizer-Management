@@ -512,17 +512,20 @@ export default function TopHeader({
           width: '42px',
           height: '42px',
           borderRadius: '10px',
-          background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+          background: '#ffffff',
+          border: '1px solid #E2E8F0',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#ffffff',
-          fontWeight: '800',
-          fontSize: '1.25rem',
-          boxShadow: '0 4px 10px rgba(5, 150, 105, 0.3)',
+          padding: '4px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           flexShrink: 0,
         }}>
-          🌿
+          <img
+            src="/logo.png"
+            alt="Fertilizer Shop Logo"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
         </div>
         <div>
           <h1 style={{

@@ -160,7 +160,10 @@ export default function MainLayout({
           flexShrink: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: '700', color: '#0B1F3A' }}>🌾 Fertilizer Shop Management</span>
+            <span style={{ fontWeight: '700', color: '#0B1F3A', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+              <img src="/logo.png" alt="Fertilizer Shop Logo" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+              Fertilizer Shop Management
+            </span>
             <span>•</span>
             <span>v1.0.0</span>
             <span>•</span>

@@ -274,7 +274,10 @@ export default function SidebarMenu({
           alignItems: 'center',
           justifyContent: 'space-between',
         }}>
-          <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#FFFFFF' }}>Navigation Menu</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <img src="/logo.png" alt="Logo" style={{ width: '26px', height: '26px', objectFit: 'contain' }} />
+            <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#FFFFFF' }}>Fertilizer Store</span>
+          </div>
           <button
             type="button"
             onClick={onClose}
