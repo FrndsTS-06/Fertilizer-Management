@@ -32,6 +32,19 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
   const [creditPaidAmount, setCreditPaidAmount] = useState('');
   const [selectedProductCode, setSelectedProductCode] = useState('');
 
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') return window.innerWidth < 768;
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Retail Purchase Modal States (Company Name, Product Name, Qty, Single Product Cost, Total Bill)
   const [isRetailModalOpen, setIsRetailModalOpen] = useState(false);
   const [retailCompanyName, setRetailCompanyName] = useState('IFFCO');
@@ -788,9 +801,9 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
 
       {/* View 1: POS Billing Interface (Create Sale / New Bill) */}
       {activeTab === 'create-sale' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.8fr 1fr', gap: isMobile ? '1rem' : '1.5rem' }}>
           {/* Bill Items Table */}
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: isMobile ? '1rem' : '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: '700', color: '#0f172a', marginBottom: '1rem' }}>
               Billing Cart · Invoice Generator
             </h3>
@@ -802,7 +815,8 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
                 <div style={{ fontSize: '0.825rem', marginTop: '0.2rem' }}>Select a fertilizer product from the inventory dropdown below to start creating an invoice.</div>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginBottom: '1.5rem' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '1.5rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '550px' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '0.825rem' }}>
                     <th style={{ padding: '0.6rem 0.5rem' }}>Product</th>
@@ -945,6 +959,7 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
                   })}
                 </tbody>
               </table>
+              </div>
             )}
 
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1072,7 +1087,7 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.65rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '0.65rem' }}>
                 {/* Customer Name */}
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={{ fontSize: '0.725rem', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '0.25rem' }}>
@@ -1271,7 +1286,7 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
                     </span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '0.4rem' }}>
                     <button
                       type="button"
                       onClick={() => setCreditPaymentType('unpaid')}
@@ -1725,8 +1740,8 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
               }
 
               return (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '650px' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '0.825rem' }}>
                         <th style={{ padding: '0.75rem' }}>Date & Time</th>
@@ -1973,8 +1988,8 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
             }
 
             return (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '750px' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                       <th style={{ padding: '0.75rem' }}>Invoice No.</th>
@@ -2639,7 +2654,7 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
               {/* Invoice Meta Grid */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1.2fr 1fr',
+                gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr',
                 gap: '1rem',
                 paddingBottom: '1rem',
                 borderBottom: '2px solid #E2E8F0',

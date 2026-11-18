@@ -257,7 +257,7 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
       {!loading && !error && products.length > 0 && (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
           gap: '1.25rem',
           marginBottom: '2rem',
         }}>
@@ -531,7 +531,7 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
         </div>
       )}
       <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
             {subItem === 'sales-summary' && '📊 Daily Sales Breakdown & Peak Hours'}
             {subItem === 'stock-summary' && '📦 Warehouse Stock Distribution by Category'}
@@ -565,8 +565,8 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
               }
 
               return (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '0.825rem' }}>
                         <th style={{ padding: '0.75rem' }}>Product</th>
@@ -644,8 +644,8 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
                 </div>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '0.825rem' }}>
                       <th style={{ padding: '0.75rem' }}>Bill No.</th>

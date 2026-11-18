@@ -100,6 +100,7 @@ export default function MainLayout({
           bottom: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch',
           backgroundColor: '#F8FAFC',
           display: 'flex',
           flexDirection: 'column',
@@ -114,6 +115,8 @@ export default function MainLayout({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
           flexShrink: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>

@@ -82,7 +82,7 @@ function CustomerSummaryCards({ summary, activeDuesFilter, onSelectFilter }) {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
       gap: '1.25rem',
       marginBottom: '1.75rem',
     }}>
@@ -991,7 +991,7 @@ function CustomerTable({
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
             gap: '1.25rem',
           }}>
             {group.items.map((c) => {
@@ -1294,7 +1294,7 @@ function CustomerProfile({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '960px',
+          maxWidth: 'min(960px, 100vw)',
           height: '100%',
           backgroundColor: '#F8FAFC',
           boxShadow: '-4px 0 30px rgba(11, 31, 58, 0.25)',

@@ -22,6 +22,7 @@ export default function TopHeader({
   // Global Live Search States
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState({ products: [], customers: [], invoices: [] });
   const [isSearching, setIsSearching] = useState(false);
   const [searchFilterTab, setSearchFilterTab] = useState('ALL'); // 'ALL' | 'PRODUCTS' | 'CUSTOMERS' | 'INVOICES'
@@ -439,6 +440,7 @@ export default function TopHeader({
 
   const handleSelectProduct = (p) => {
     setIsSearchOpen(false);
+    setIsMobileSearchOpen(false);
     if (onNavigate) {
       onNavigate('products-stock', 'all-products');
     }
@@ -449,6 +451,7 @@ export default function TopHeader({
 
   const handleSelectCustomer = (c) => {
     setIsSearchOpen(false);
+    setIsMobileSearchOpen(false);
     if (onNavigate) {
       onNavigate('customer-details', 'all-customers');
     }
@@ -459,6 +462,7 @@ export default function TopHeader({
 
   const handleSelectInvoice = (inv) => {
     setIsSearchOpen(false);
+    setIsMobileSearchOpen(false);
     if (onNavigate) {
       onNavigate('purchase-sales', 'invoices');
     }
@@ -493,6 +497,272 @@ export default function TopHeader({
   const shopDisplayName = storeInfo.storeName || 'Fertilizer';
   const profileDisplayName = shopDisplayName; // User specified: profile displays shop name "Fertilizer"
   const profileAvatar = 'FT';
+
+  const renderSearchResultsContent = () => (
+    <>
+      {/* Filter Tabs */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.35rem',
+          borderBottom: '1px solid #F1F5F9',
+          paddingBottom: '0.5rem',
+          marginBottom: '0.65rem',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        {[
+          { id: 'ALL', label: `All (${searchResults.products.length + searchResults.customers.length + searchResults.invoices.length})` },
+          { id: 'PRODUCTS', label: `📦 Products (${searchResults.products.length})` },
+          { id: 'CUSTOMERS', label: `👥 Farmers (${searchResults.customers.length})` },
+          { id: 'INVOICES', label: `🧾 Invoices (${searchResults.invoices.length})` },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setSearchFilterTab(tab.id)}
+            style={{
+              background: searchFilterTab === tab.id ? '#0F172A' : '#F1F5F9',
+              color: searchFilterTab === tab.id ? '#FFFFFF' : '#475569',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '3px 8px',
+              fontSize: '0.72rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Loading Indicator */}
+      {isSearching && (
+        <div style={{ padding: '0.5rem', textAlign: 'center', fontSize: '0.78rem', color: '#64748B' }}>
+          Searching database...
+        </div>
+      )}
+
+      {!isSearching &&
+        searchResults.products.length === 0 &&
+        searchResults.customers.length === 0 &&
+        searchResults.invoices.length === 0 && (
+          <div style={{ padding: '1.25rem', textAlign: 'center', color: '#64748B', fontSize: '0.82rem' }}>
+            <div style={{ fontSize: '1.4rem', marginBottom: '0.35rem' }}>🔍</div>
+            No matching products, farmers, or invoices found for "<b>{searchTerm}</b>".
+          </div>
+        )}
+
+      {/* 1. Products Section */}
+      {(searchFilterTab === 'ALL' || searchFilterTab === 'PRODUCTS') && searchResults.products.length > 0 && (
+        <div style={{ marginBottom: '0.75rem' }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.04em' }}>
+            📦 Products ({searchResults.products.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {searchResults.products.map((p) => {
+              const stock = Number(p.stock || 0);
+              const threshold = Number(p.minThreshold || 10);
+              const isOut = stock <= 0;
+              const isLow = stock > 0 && stock <= threshold;
+
+              return (
+                <div
+                  key={p.id || p.code}
+                  onClick={() => handleSelectProduct(p)}
+                  style={{
+                    padding: '0.5rem 0.65rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#EFF6FF';
+                    e.currentTarget.style.borderColor = '#93C5FD';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    e.currentTarget.style.borderColor = '#E2E8F0';
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <strong style={{ fontSize: '0.825rem', color: '#0F172A' }}>{p.name}</strong>
+                      <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#E0E7FF', color: '#3730A3', fontWeight: '700' }}>
+                        {p.code}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
+                      {p.brand} • {p.category || p.categoryName || 'Fertilizer'} • ₹{Number(p.price || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: '700',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        backgroundColor: isOut ? '#FEE2E2' : isLow ? '#FEF3C7' : '#D1FAE5',
+                        color: isOut ? '#991B1B' : isLow ? '#92400E' : '#065F46',
+                      }}
+                    >
+                      {isOut ? 'Out of Stock' : `Stock: ${stock} ${p.unit || 'units'}`}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: '700' }}>→</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 2. Customers Section */}
+      {(searchFilterTab === 'ALL' || searchFilterTab === 'CUSTOMERS') && searchResults.customers.length > 0 && (
+        <div style={{ marginBottom: '0.75rem' }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.04em' }}>
+            👥 Farmers & Customers ({searchResults.customers.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {searchResults.customers.map((c) => {
+              const dues = Number(c.outstandingDues || c.outstanding_dues || 0);
+
+              return (
+                <div
+                  key={c.id || c.customerCode}
+                  onClick={() => handleSelectCustomer(c)}
+                  style={{
+                    padding: '0.5rem 0.65rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#EFF6FF';
+                    e.currentTarget.style.borderColor = '#93C5FD';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    e.currentTarget.style.borderColor = '#E2E8F0';
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <strong style={{ fontSize: '0.825rem', color: '#0F172A' }}>{c.name}</strong>
+                      {c.customerCode && (
+                        <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#E2E8F0', color: '#334155', fontWeight: '700' }}>
+                          {c.customerCode}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
+                      📍 {c.village || 'No village'} • 📞 {c.phone || 'No phone'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: '700',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        backgroundColor: dues > 0 ? '#FEE2E2' : '#D1FAE5',
+                        color: dues > 0 ? '#991B1B' : '#065F46',
+                      }}
+                    >
+                      {dues > 0 ? `Due: ₹${dues.toLocaleString('en-IN')}` : '✓ No Due'}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: '700' }}>→</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Invoices Section */}
+      {(searchFilterTab === 'ALL' || searchFilterTab === 'INVOICES') && searchResults.invoices.length > 0 && (
+        <div style={{ marginBottom: '0.5rem' }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.04em' }}>
+            🧾 Invoices & Bills ({searchResults.invoices.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {searchResults.invoices.map((inv) => {
+              const isPaid = inv.paymentStatus === 'PAID' || inv.paymentStatus === 'CLEARED' || inv.dueAmount <= 0;
+
+              return (
+                <div
+                  key={inv.id || inv.invoiceNumber}
+                  onClick={() => handleSelectInvoice(inv)}
+                  style={{
+                    padding: '0.5rem 0.65rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#EFF6FF';
+                    e.currentTarget.style.borderColor = '#93C5FD';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    e.currentTarget.style.borderColor = '#E2E8F0';
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <strong style={{ fontSize: '0.825rem', color: '#0F172A' }}>{inv.invoiceNumber}</strong>
+                      <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#F1F5F9', color: '#334155', fontWeight: '700' }}>
+                        {inv.billingType || 'SALE'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
+                      Customer: {inv.customerName || 'Walk-in'} • ₹{Number(inv.totalAmount || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: '700',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        backgroundColor: isPaid ? '#D1FAE5' : '#FEF3C7',
+                        color: isPaid ? '#065F46' : '#92400E',
+                      }}
+                    >
+                      {isPaid ? '✓ Paid' : 'Payment Pending'}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: '700' }}>→</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <header style={{
@@ -554,16 +824,16 @@ export default function TopHeader({
           </button>
         )}
         <div style={{
-          width: '42px',
-          height: '42px',
-          borderRadius: '10px',
+          width: isMobile ? '36px' : '42px',
+          height: isMobile ? '36px' : '42px',
+          borderRadius: '8px',
           background: '#ffffff',
           border: '1px solid #E2E8F0',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '4px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+          padding: '3px',
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
           flexShrink: 0,
         }}>
           <img
@@ -574,38 +844,45 @@ export default function TopHeader({
         </div>
         <div>
           <h1 style={{
-            fontSize: isMobile ? '1.1rem' : '1.25rem',
+            fontSize: isMobile ? '1.05rem' : '1.25rem',
             fontWeight: '800',
             color: '#0f172a',
             lineHeight: 1.2,
             letterSpacing: '-0.01em',
-            margin: 0
+            margin: 0,
+            maxWidth: isMobile ? '135px' : 'none',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}>
             {shopDisplayName}
           </h1>
-          <p style={{
-            fontSize: '0.75rem',
-            color: '#059669',
-            fontWeight: '600',
-            margin: '2px 0 0 0',
-            letterSpacing: '0.02em',
-            textTransform: 'uppercase'
-          }}>
-            Inventory, Billing & Accounts
-          </p>
+          {!isMobile && (
+            <p style={{
+              fontSize: '0.75rem',
+              color: '#059669',
+              fontWeight: '600',
+              margin: '2px 0 0 0',
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase'
+            }}>
+              Inventory, Billing & Accounts
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Middle: Quick Search */}
-      <div
-        ref={searchContainerRef}
-        style={{
-          flex: '1',
-          maxWidth: '520px',
-          margin: isMobile ? '0 0.5rem' : '0 1.5rem',
-          position: 'relative',
-        }}
-      >
+      {/* Middle: Quick Search (Desktop) */}
+      {!isMobile && (
+        <div
+          ref={searchContainerRef}
+          style={{
+            flex: '1',
+            maxWidth: '520px',
+            margin: '0 1.5rem',
+            position: 'relative',
+          }}
+        >
         <div
           style={{
             position: 'relative',
@@ -694,286 +971,61 @@ export default function TopHeader({
 
         {/* Global Instant Search Results Dropdown */}
         {isSearchOpen && searchTerm.trim() && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '46px',
-              left: 0,
-              right: 0,
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              border: '1px solid #CBD5E1',
-              boxShadow: '0 15px 35px -5px rgba(15, 23, 42, 0.18), 0 5px 15px rgba(0,0,0,0.06)',
-              padding: '0.75rem',
-              zIndex: 100,
-              maxHeight: '440px',
-              overflowY: 'auto',
-            }}
-          >
-            {/* Filter Tabs */}
             <div
               style={{
-                display: 'flex',
-                gap: '0.35rem',
-                borderBottom: '1px solid #F1F5F9',
-                paddingBottom: '0.5rem',
-                marginBottom: '0.65rem',
+                position: 'absolute',
+                top: '46px',
+                left: 0,
+                right: 0,
+                backgroundColor: '#FFFFFF',
+                borderRadius: '12px',
+                border: '1px solid #CBD5E1',
+                boxShadow: '0 15px 35px -5px rgba(15, 23, 42, 0.18), 0 5px 15px rgba(0,0,0,0.06)',
+                padding: '0.75rem',
+                zIndex: 100,
+                maxHeight: '440px',
+                overflowY: 'auto',
               }}
             >
-              {[
-                { id: 'ALL', label: `All (${searchResults.products.length + searchResults.customers.length + searchResults.invoices.length})` },
-                { id: 'PRODUCTS', label: `📦 Products (${searchResults.products.length})` },
-                { id: 'CUSTOMERS', label: `👥 Farmers (${searchResults.customers.length})` },
-                { id: 'INVOICES', label: `🧾 Invoices (${searchResults.invoices.length})` },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setSearchFilterTab(tab.id)}
-                  style={{
-                    background: searchFilterTab === tab.id ? '#0F172A' : '#F1F5F9',
-                    color: searchFilterTab === tab.id ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '3px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              {renderSearchResultsContent()}
             </div>
-
-            {/* Loading Indicator */}
-            {isSearching && (
-              <div style={{ padding: '0.5rem', textAlign: 'center', fontSize: '0.78rem', color: '#64748B' }}>
-                Searching database...
-              </div>
-            )}
-
-            {!isSearching &&
-              searchResults.products.length === 0 &&
-              searchResults.customers.length === 0 &&
-              searchResults.invoices.length === 0 && (
-                <div style={{ padding: '1.25rem', textAlign: 'center', color: '#64748B', fontSize: '0.82rem' }}>
-                  <div style={{ fontSize: '1.4rem', marginBottom: '0.35rem' }}>🔍</div>
-                  No matching products, farmers, or invoices found for "<b>{searchTerm}</b>".
-                </div>
-              )}
-
-            {/* 1. Products Section */}
-            {(searchFilterTab === 'ALL' || searchFilterTab === 'PRODUCTS') && searchResults.products.length > 0 && (
-              <div style={{ marginBottom: '0.75rem' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.04em' }}>
-                  📦 Products ({searchResults.products.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  {searchResults.products.map((p) => {
-                    const stock = Number(p.stock ?? 0);
-                    const threshold = Number(p.minThreshold ?? p.min_threshold ?? 10);
-                    const isLow = stock <= threshold && stock > 0;
-                    const isOut = stock <= 0;
-
-                    return (
-                      <div
-                        key={p.id || p.code}
-                        onClick={() => handleSelectProduct(p)}
-                        style={{
-                          padding: '0.5rem 0.65rem',
-                          borderRadius: '8px',
-                          backgroundColor: '#F8FAFC',
-                          border: '1px solid #E2E8F0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#EFF6FF';
-                          e.currentTarget.style.borderColor = '#93C5FD';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#F8FAFC';
-                          e.currentTarget.style.borderColor = '#E2E8F0';
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <strong style={{ fontSize: '0.825rem', color: '#0F172A' }}>{p.name}</strong>
-                            <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#E0E7FF', color: '#3730A3', fontWeight: '700' }}>
-                              {p.code}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
-                            {p.brand} • {p.category || p.categoryName || 'Fertilizer'} • ₹{Number(p.price || 0).toFixed(2)}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              fontWeight: '700',
-                              padding: '2px 7px',
-                              borderRadius: '6px',
-                              backgroundColor: isOut ? '#FEE2E2' : isLow ? '#FEF3C7' : '#D1FAE5',
-                              color: isOut ? '#991B1B' : isLow ? '#92400E' : '#065F46',
-                            }}
-                          >
-                            {isOut ? 'Out of Stock' : `Stock: ${stock} ${p.unit || 'units'}`}
-                          </span>
-                          <span style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: '700' }}>→</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* 2. Customers Section */}
-            {(searchFilterTab === 'ALL' || searchFilterTab === 'CUSTOMERS') && searchResults.customers.length > 0 && (
-              <div style={{ marginBottom: '0.75rem' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.04em' }}>
-                  👥 Farmers & Customers ({searchResults.customers.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  {searchResults.customers.map((c) => {
-                    const dues = Number(c.outstandingDues || c.outstanding_dues || 0);
-
-                    return (
-                      <div
-                        key={c.id || c.customerCode}
-                        onClick={() => handleSelectCustomer(c)}
-                        style={{
-                          padding: '0.5rem 0.65rem',
-                          borderRadius: '8px',
-                          backgroundColor: '#F8FAFC',
-                          border: '1px solid #E2E8F0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#EFF6FF';
-                          e.currentTarget.style.borderColor = '#93C5FD';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#F8FAFC';
-                          e.currentTarget.style.borderColor = '#E2E8F0';
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <strong style={{ fontSize: '0.825rem', color: '#0F172A' }}>{c.name}</strong>
-                            {c.customerCode && (
-                              <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#E2E8F0', color: '#334155', fontWeight: '700' }}>
-                                {c.customerCode}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
-                            📍 {c.village || 'No village'} • 📞 {c.phone || 'No phone'}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              fontWeight: '700',
-                              padding: '2px 7px',
-                              borderRadius: '6px',
-                              backgroundColor: dues > 0 ? '#FEE2E2' : '#D1FAE5',
-                              color: dues > 0 ? '#991B1B' : '#065F46',
-                            }}
-                          >
-                            {dues > 0 ? `Due: ₹${dues.toLocaleString('en-IN')}` : '✓ No Due'}
-                          </span>
-                          <span style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: '700' }}>→</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* 3. Invoices Section */}
-            {(searchFilterTab === 'ALL' || searchFilterTab === 'INVOICES') && searchResults.invoices.length > 0 && (
-              <div style={{ marginBottom: '0.5rem' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.04em' }}>
-                  🧾 Invoices & Bills ({searchResults.invoices.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  {searchResults.invoices.map((inv) => {
-                    const isPaid = inv.paymentStatus === 'PAID' || inv.paymentStatus === 'CLEARED' || inv.dueAmount <= 0;
-
-                    return (
-                      <div
-                        key={inv.id || inv.invoiceNumber}
-                        onClick={() => handleSelectInvoice(inv)}
-                        style={{
-                          padding: '0.5rem 0.65rem',
-                          borderRadius: '8px',
-                          backgroundColor: '#F8FAFC',
-                          border: '1px solid #E2E8F0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#EFF6FF';
-                          e.currentTarget.style.borderColor = '#93C5FD';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#F8FAFC';
-                          e.currentTarget.style.borderColor = '#E2E8F0';
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <strong style={{ fontSize: '0.825rem', color: '#0F172A' }}>{inv.invoiceNumber}</strong>
-                            <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#F1F5F9', color: '#334155', fontWeight: '700' }}>
-                              {inv.billingType || 'SALE'}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
-                            Customer: {inv.customerName || 'Walk-in'} • ₹{Number(inv.totalAmount || 0).toFixed(2)}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              fontWeight: '700',
-                              padding: '2px 7px',
-                              borderRadius: '6px',
-                              backgroundColor: isPaid ? '#D1FAE5' : '#FEF3C7',
-                              color: isPaid ? '#065F46' : '#92400E',
-                            }}
-                          >
-                            {isPaid ? '✓ Paid' : 'Payment Pending'}
-                          </span>
-                          <span style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: '700' }}>→</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Right Header Navigation & Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1.25rem', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.45rem' : '1.25rem', flexShrink: 0 }}>
+        {/* Mobile Search Toggle Icon */}
+        {isMobile && (
+          <button
+            type="button"
+            onClick={() => {
+              setIsMobileSearchOpen((prev) => !prev);
+              setShowNotifications(false);
+              setShowProfileMenu(false);
+            }}
+            title="Search products, invoices, farmers"
+            aria-label="Toggle Global Search"
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '8px',
+              backgroundColor: isMobileSearchOpen ? '#EFF6FF' : '#F1F5F9',
+              border: isMobileSearchOpen ? '1.5px solid #2563EB' : '1px solid #CBD5E1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              color: '#0B1F3A',
+              padding: 0,
+              flexShrink: 0,
+            }}
+          >
+            🔍
+          </button>
+        )}
+
         {/* Notifications Icon with Badge */}
         <div style={{ position: 'relative' }}>
           <button
@@ -981,6 +1033,7 @@ export default function TopHeader({
               const next = !showNotifications;
               setShowNotifications(next);
               setShowProfileMenu(false);
+              setIsMobileSearchOpen(false);
               if (next) {
                 loadAlerts();
               }
@@ -993,9 +1046,9 @@ export default function TopHeader({
             style={{
               background: stockAlerts.length > 0 ? '#FEF2F2' : '#f1f5f9',
               border: stockAlerts.length > 0 ? '1.5px solid #FCA5A5' : '1px solid #E2E8F0',
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
+              width: isMobile ? '38px' : '42px',
+              height: isMobile ? '38px' : '42px',
+              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1004,6 +1057,7 @@ export default function TopHeader({
               position: 'relative',
               transition: 'all 0.2s ease',
               boxShadow: stockAlerts.length > 0 ? '0 0 10px rgba(239, 68, 68, 0.2)' : 'none',
+              flexShrink: 0,
             }}
           >
             <span>🔔</span>
@@ -1036,10 +1090,14 @@ export default function TopHeader({
           {showNotifications && (
             <div
               style={{
-                position: 'absolute',
-                right: 0,
-                top: '52px',
-                width: isMobile ? '310px' : '390px',
+                position: isMobile ? 'fixed' : 'absolute',
+                right: isMobile ? '8px' : 0,
+                left: isMobile ? '8px' : 'auto',
+                top: isMobile ? '72px' : '52px',
+                width: isMobile ? 'auto' : '390px',
+                maxWidth: isMobile ? 'calc(100vw - 16px)' : '390px',
+                maxHeight: isMobile ? '78vh' : 'none',
+                overflowY: isMobile ? 'auto' : 'visible',
                 background: '#ffffff',
                 borderRadius: '14px',
                 boxShadow: '0 20px 35px -5px rgba(15, 23, 42, 0.15), 0 10px 15px -5px rgba(15, 23, 42, 0.08)',
@@ -1417,7 +1475,7 @@ export default function TopHeader({
                 {user?.role === 'ADMIN' ? 'Administrator' : 'Store Staff'}
               </div>
             </div>
-            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>▼</span>
+            {!isMobile && <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>▼</span>}
           </button>
 
           {/* Profile Dropdown Popup */}
@@ -1429,10 +1487,14 @@ export default function TopHeader({
                 style={{ position: 'fixed', inset: 0, zIndex: 40 }}
               />
               <div style={{
-                position: 'absolute',
-                right: 0,
-                top: '52px',
-                width: '290px',
+                position: isMobile ? 'fixed' : 'absolute',
+                right: isMobile ? '8px' : 0,
+                left: isMobile ? '8px' : 'auto',
+                top: isMobile ? '72px' : '52px',
+                width: isMobile ? 'auto' : '290px',
+                maxWidth: isMobile ? 'calc(100vw - 16px)' : '290px',
+                maxHeight: isMobile ? '78vh' : 'none',
+                overflowY: isMobile ? 'auto' : 'visible',
                 background: '#ffffff',
                 borderRadius: '12px',
                 boxShadow: '0 15px 35px -5px rgba(11, 31, 58, 0.18), 0 5px 15px rgba(0,0,0,0.06)',
@@ -2086,6 +2148,107 @@ export default function TopHeader({
 
         </div>
       </div>
+
+      {/* Mobile Search Overlay Bar */}
+      {isMobile && isMobileSearchOpen && (
+        <div
+          ref={searchContainerRef}
+          style={{
+            position: 'fixed',
+            top: '72px',
+            left: 0,
+            right: 0,
+            backgroundColor: '#FFFFFF',
+            borderBottom: '2px solid #2563EB',
+            boxShadow: '0 12px 28px -4px rgba(11, 31, 58, 0.25)',
+            padding: '0.65rem 0.85rem',
+            zIndex: 55,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+              <span style={{ position: 'absolute', left: '10px', color: '#94a3b8', fontSize: '0.9rem', pointerEvents: 'none' }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Search products, invoices, farmers..."
+                value={searchTerm}
+                autoFocus
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchTerm(val);
+                  performSearch(val);
+                  setIsSearchOpen(true);
+                }}
+                onFocus={() => {
+                  if (searchTerm.trim()) setIsSearchOpen(true);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.55rem 2rem 0.55rem 2.2rem',
+                  borderRadius: '8px',
+                  border: '1.5px solid #2563EB',
+                  backgroundColor: '#F8FAFC',
+                  fontSize: '0.875rem',
+                  color: '#0B1F3A',
+                  outline: 'none',
+                }}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  title="Clear search"
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    background: '#E2E8F0',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    cursor: 'pointer',
+                    fontSize: '0.7rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileSearchOpen(false);
+                setIsSearchOpen(false);
+              }}
+              style={{
+                background: '#F1F5F9',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                padding: '0.55rem 0.75rem',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                color: '#475569',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              Close
+            </button>
+          </div>
+
+          {searchTerm.trim() && (
+            <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              {renderSearchResultsContent()}
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 }

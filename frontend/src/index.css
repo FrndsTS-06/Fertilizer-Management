@@ -60,6 +60,44 @@ body {
 
 #main-scroll-container {
   scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile & Touch Responsive Enhancements */
+@media (max-width: 768px) {
+  html, body {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .mobile-grid-1 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mobile-full-width {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .mobile-scroll-x {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Make sure modals do not blow out the screen on mobile */
+  .fts-modal-container {
+    max-width: calc(100vw - 20px) !important;
+    margin: 0 auto !important;
+  }
 }
 
 /* Custom scrollbars */

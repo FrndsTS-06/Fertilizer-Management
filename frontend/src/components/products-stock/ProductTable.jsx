@@ -98,9 +98,10 @@ export default function ProductTable({
       boxShadow: '0 1px 3px rgba(11, 31, 58, 0.04)',
     }}>
       {/* Table Container */}
-      <div style={{ overflowX: 'auto' }}>
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <table style={{
           width: '100%',
+          minWidth: '780px',
           borderCollapse: 'collapse',
           textAlign: 'left',
           fontSize: '0.875rem',

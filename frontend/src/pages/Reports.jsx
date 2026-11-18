@@ -477,7 +477,7 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
       </div>
 
       {/* Top 4 KPI Valuation Overview Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.75rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '1.25rem', marginBottom: '1.75rem' }}>
         <div style={{ background: '#FFFFFF', padding: '1.25rem', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>Current Stock Valuation (Market)</div>
           <div style={{ fontSize: '1.65rem', fontWeight: '900', color: '#0284C7', marginTop: '0.35rem', letterSpacing: '-0.02em' }}>
@@ -624,8 +624,8 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
               </p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '650px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', color: '#475569', fontSize: '0.775rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     <th style={{ padding: '0.85rem 1.25rem' }}>Product & Brand</th>
@@ -779,8 +779,8 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
               </p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '650px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', color: '#475569', fontSize: '0.775rem', textTransform: 'uppercase' }}>
                     <th style={{ padding: '0.85rem 1.25rem' }}>Invoice No</th>
@@ -887,8 +887,8 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
               </p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '650px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', color: '#475569', fontSize: '0.775rem', textTransform: 'uppercase' }}>
                     <th style={{ padding: '0.85rem 1.25rem' }}>Farmer / Customer</th>
@@ -964,8 +964,8 @@ export default function Reports({ subItem = 'stock-report', onNavigate }) {
               </p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '650px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', color: '#475569', fontSize: '0.775rem', textTransform: 'uppercase' }}>
                     <th style={{ padding: '0.85rem 1.25rem' }}>Product Name</th>
