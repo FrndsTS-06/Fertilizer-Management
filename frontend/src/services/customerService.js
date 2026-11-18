@@ -3,7 +3,7 @@
  * Powered by centralized apiClient with live backend REST API integration.
  * Communicates directly with PostgreSQL via /api/customers, /api/sales, and /api/payments.
  */
-import apiClient from './apiClient';
+import apiClient, { apiStatus } from './apiClient';
 
 const fallbackCustomers = [
   {
@@ -99,18 +99,20 @@ export const customerService = {
     if (page) params.page = page;
     if (limit) params.limit = limit;
 
-    try {
-      const res = await apiClient.get('/customers', params);
-      const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
-      if (list.length > 0 || res?.summary) {
-        return {
-          data: list,
-          summary: res?.summary || null,
-          pagination: res?.pagination || null,
-        };
+    if (!apiStatus.isOffline()) {
+      try {
+        const res = await apiClient.get('/customers', params);
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        if (list.length > 0 || res?.summary) {
+          return {
+            data: list,
+            summary: res?.summary || null,
+            pagination: res?.pagination || null,
+          };
+        }
+      } catch {
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      console.warn('customerService.getCustomers API error, using fallback:', e.message);
     }
 
     let list = [...fallbackCustomers];
@@ -216,12 +218,14 @@ export const customerService = {
    * List all sales from backend database
    */
   async getAllSales(params = null) {
-    try {
-      const res = await apiClient.get('/sales', params);
-      if (Array.isArray(res?.data)) return res.data;
-      if (Array.isArray(res)) return res;
-    } catch (e) {
-      console.warn('customerService.getAllSales API error, using fallback:', e.message);
+    if (!apiStatus.isOffline()) {
+      try {
+        const res = await apiClient.get('/sales', params);
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res)) return res;
+      } catch {
+        apiStatus.setOffline(true);
+      }
     }
     return [...fallbackSales];
   },

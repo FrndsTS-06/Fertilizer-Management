@@ -8,6 +8,15 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'fts_token';
 const USER_KEY = 'fts_user';
 
+let isOfflineMode = false;
+
+export const apiStatus = {
+  isOffline: () => isOfflineMode,
+  setOffline: (val = true) => {
+    isOfflineMode = Boolean(val);
+  },
+};
+
 export const tokenStorage = {
   getToken: () => {
     try {
@@ -132,6 +141,7 @@ async function request(endpoint, options = {}) {
       const rawText = await response.text();
       // If server returned an HTML document (SPA static host routing unknown /api endpoints to index.html)
       if (rawText.trim().startsWith('<!DOCTYPE') || rawText.includes('<html')) {
+        isOfflineMode = true;
         const htmlError = new Error(
           `API endpoint (${endpoint}) returned an HTML document instead of JSON. Backend Web Service may be offline or not configured.`
         );

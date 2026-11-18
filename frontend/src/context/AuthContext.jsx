@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import apiClient, { tokenStorage } from '../services/apiClient';
+import apiClient, { tokenStorage, apiStatus } from '../services/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -33,6 +33,11 @@ export function AuthProvider({ children }) {
       }
 
       try {
+        if (storedToken.startsWith('demo-jwt-offline-token') || apiStatus.isOffline()) {
+          apiStatus.setOffline(true);
+          if (isMounted) setLoading(false);
+          return;
+        }
         const res = await apiClient.get('/auth/me');
         if (isMounted) {
           if (res?.data?.user) {
@@ -41,9 +46,10 @@ export function AuthProvider({ children }) {
           }
         }
       } catch (err) {
-        console.warn('Session verification error:', err.message);
         if (err.status === 401) {
           logout();
+        } else {
+          apiStatus.setOffline(true);
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -86,8 +92,8 @@ export function AuthProvider({ children }) {
          normalized === 'admin@fertilizer.test') &&
         (password === 'Password@123' || password === 'Test@12345');
 
-      if (isKnownDemo && (err.message?.includes('Failed to fetch') || err.message?.includes('Network Error') || !err.status)) {
-        console.warn('Backend API unreachable, activating offline demonstration session:', err.message);
+      if (isKnownDemo && (err.message?.includes('Failed to fetch') || err.message?.includes('Network Error') || !err.status || err.isHtmlFallback)) {
+        apiStatus.setOffline(true);
         const demoUser = {
           id: normalized === 'cashier@fertilizershop.local' ? '00000000-0000-0000-0000-000000000002' : '00000000-0000-0000-0000-000000000001',
           email: normalized,

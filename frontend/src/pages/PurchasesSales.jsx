@@ -434,12 +434,12 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
                   custId = foundInDb.id;
                   matchedCust = foundInDb;
                 }
-              } catch (searchErr) {
-                console.warn('Customer phone lookup error:', searchErr);
+              } catch {
+                // quiet lookup
               }
             }
             if (!custId) {
-              console.warn('Customer auto-create on client skipped (backend fallback will link):', custErr);
+              // fallback link
             }
           }
         }

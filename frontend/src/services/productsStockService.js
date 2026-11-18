@@ -2,7 +2,7 @@
  * Service layer for Products & Stock Management
  * Powered by centralized apiClient with live backend REST API integration.
  */
-import apiClient from './apiClient';
+import apiClient, { apiStatus } from './apiClient';
 
 function calcStatus(stock, threshold) {
   if (stock <= 0) return 'Out of Stock';
@@ -222,20 +222,22 @@ let fallbackMovements = [
 export const productsStockService = {
   // GET /api/products
   async getProducts({ search = '', category = 'All', status = 'All', page = 1, limit = 50 } = {}) {
-    try {
-      const params = {};
-      if (search && search.trim()) params.search = search.trim();
-      if (category && category !== 'All') params.category = category;
-      if (status && status !== 'All') params.status = status;
-      if (page) params.page = page;
-      if (limit) params.limit = limit;
+    if (!apiStatus.isOffline()) {
+      try {
+        const params = {};
+        if (search && search.trim()) params.search = search.trim();
+        if (category && category !== 'All') params.category = category;
+        if (status && status !== 'All') params.status = status;
+        if (page) params.page = page;
+        if (limit) params.limit = limit;
 
-      const res = await apiClient.get('/products', params);
-      if (res?.data && Array.isArray(res.data)) {
-        return res.data;
+        const res = await apiClient.get('/products', params);
+        if (res?.data && Array.isArray(res.data)) {
+          return res.data;
+        }
+      } catch {
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      console.warn('productsStockService.getProducts API error, using fallback:', e.message);
     }
 
     let list = [...fallbackProducts];
@@ -258,13 +260,15 @@ export const productsStockService = {
 
   // GET /api/products/:id
   async getProductById(id) {
-    try {
-      const res = await apiClient.get(`/products/${id}`);
-      if (res?.data) {
-        return res.data;
+    if (!apiStatus.isOffline()) {
+      try {
+        const res = await apiClient.get(`/products/${id}`);
+        if (res?.data) {
+          return res.data;
+        }
+      } catch {
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      console.warn('productsStockService.getProductById API error:', e.message);
     }
 
     return fallbackProducts.find(p => p.id === id || p.code === id) || null;
@@ -272,16 +276,17 @@ export const productsStockService = {
 
   // POST /api/products
   async createProduct(productData) {
-    try {
-      const res = await apiClient.post('/products', productData);
-      if (res?.data) {
-        notifyInventoryChange();
-        return res.data;
+    if (!apiStatus.isOffline()) {
+      try {
+        const res = await apiClient.post('/products', productData);
+        if (res?.data) {
+          notifyInventoryChange();
+          return res.data;
+        }
+      } catch (e) {
+        if (e.status) throw e;
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      // If error is from server (e.g. 400 validation error or 403 forbidden), throw it to inform user
-      if (e.status) throw e;
-      console.warn('productsStockService.createProduct network error, using fallback:', e.message);
     }
 
     const code = productData.code || `PRD${String(fallbackProducts.length + 1).padStart(3, '0')}`;
@@ -307,15 +312,17 @@ export const productsStockService = {
 
   // PATCH /api/products/:id
   async updateProduct(id, productData) {
-    try {
-      const res = await apiClient.patch(`/products/${id}`, productData);
-      if (res?.data) {
-        notifyInventoryChange();
-        return res.data;
+    if (!apiStatus.isOffline()) {
+      try {
+        const res = await apiClient.patch(`/products/${id}`, productData);
+        if (res?.data) {
+          notifyInventoryChange();
+          return res.data;
+        }
+      } catch (e) {
+        if (e.status) throw e;
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      if (e.status) throw e;
-      console.warn('productsStockService.updateProduct error:', e.message);
     }
 
     const idx = fallbackProducts.findIndex(p => p.id === id || p.code === id);
@@ -337,13 +344,15 @@ export const productsStockService = {
 
   // GET /api/inventory/summary
   async getInventorySummary() {
-    try {
-      const res = await apiClient.get('/inventory/summary');
-      if (res?.data) {
-        return res.data;
+    if (!apiStatus.isOffline()) {
+      try {
+        const res = await apiClient.get('/inventory/summary');
+        if (res?.data) {
+          return res.data;
+        }
+      } catch {
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      console.warn('productsStockService.getInventorySummary error:', e.message);
     }
 
     const totalProducts = fallbackProducts.length;
@@ -363,17 +372,19 @@ export const productsStockService = {
 
   // GET /api/inventory/movements
   async getInventoryMovements({ productId = '', type = 'All' } = {}) {
-    try {
-      const params = {};
-      if (productId) params.productId = productId;
-      if (type && type !== 'All') params.type = type;
+    if (!apiStatus.isOffline()) {
+      try {
+        const params = {};
+        if (productId) params.productId = productId;
+        if (type && type !== 'All') params.type = type;
 
-      const res = await apiClient.get('/inventory/movements', params);
-      if (res?.data && Array.isArray(res.data)) {
-        return res.data;
+        const res = await apiClient.get('/inventory/movements', params);
+        if (res?.data && Array.isArray(res.data)) {
+          return res.data;
+        }
+      } catch {
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      console.warn('productsStockService.getInventoryMovements error:', e.message);
     }
 
     let list = [...fallbackMovements];
@@ -388,15 +399,17 @@ export const productsStockService = {
 
   // POST /api/inventory/adjustments
   async createStockAdjustment(adjData) {
-    try {
-      const res = await apiClient.post('/inventory/adjustments', adjData);
-      if (res?.data) {
-        notifyInventoryChange();
-        return res.data;
+    if (!apiStatus.isOffline()) {
+      try {
+        const res = await apiClient.post('/inventory/adjustments', adjData);
+        if (res?.data) {
+          notifyInventoryChange();
+          return res.data;
+        }
+      } catch (e) {
+        if (e.status) throw e;
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      if (e.status) throw e;
-      console.warn('productsStockService.createStockAdjustment error:', e.message);
     }
 
     const { productId, operation = 'ADD', quantity, reason, reference = '' } = adjData;
@@ -447,15 +460,17 @@ export const productsStockService = {
 
   // DELETE /api/products/:id
   async deleteProduct(id) {
-    try {
-      const res = await apiClient.delete(`/products/${id}`);
-      if (res?.data) {
-        notifyInventoryChange();
-        return res.data;
+    if (!apiStatus.isOffline()) {
+      try {
+        const res = await apiClient.delete(`/products/${id}`);
+        if (res?.data) {
+          notifyInventoryChange();
+          return res.data;
+        }
+      } catch (e) {
+        if (e.status) throw e;
+        apiStatus.setOffline(true);
       }
-    } catch (e) {
-      if (e.status) throw e;
-      console.warn('productsStockService.deleteProduct error:', e.message);
     }
 
     const idx = fallbackProducts.findIndex(p => p.id === id || p.code === id);

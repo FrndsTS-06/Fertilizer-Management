@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import apiClient from '../services/apiClient';
+import apiClient, { apiStatus } from '../services/apiClient';
 import { productsStockService } from '../services/productsStockService';
 import { customerService } from '../services/customerService';
 
@@ -13,6 +13,23 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
   const fetchDashboardData = async () => {
     setLoading(true);
     setError(null);
+
+    if (apiStatus.isOffline()) {
+      try {
+        const [fallbackProds, fallbackSalesList] = await Promise.all([
+          productsStockService.getProducts(),
+          customerService.getAllSales()
+        ]);
+        setProducts(fallbackProds || []);
+        setSales(fallbackSalesList || []);
+      } catch {
+        // quiet fallback
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       const [prodRes, saleRes] = await Promise.all([
         apiClient.get('/products'),
@@ -29,7 +46,7 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
         setSales(saleRes.data);
       }
     } catch (err) {
-      console.warn('Live API unreachable, using local services:', err?.message || 'offline mode');
+      apiStatus.setOffline(true);
       try {
         const [fallbackProds, fallbackSalesList] = await Promise.all([
           productsStockService.getProducts(),
@@ -42,7 +59,7 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
         } else {
           setError(err.message || `Unable to connect to live Fertilizer API at ${apiClient.getBaseUrl()}`);
         }
-      } catch (fallbackErr) {
+      } catch {
         setError(err.message || `Unable to connect to live Fertilizer API at ${apiClient.getBaseUrl()}`);
       }
     } finally {

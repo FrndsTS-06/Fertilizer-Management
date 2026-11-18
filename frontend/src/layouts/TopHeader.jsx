@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import apiClient from '../services/apiClient';
+import apiClient, { apiStatus } from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { productsStockService } from '../services/productsStockService';
 
@@ -137,41 +137,53 @@ export default function TopHeader({
     try {
       let lowItems = [];
 
-      // 1. Primary query: Dedicated backend low-stock endpoint
-      try {
-        const lowStockRes = await apiClient.get('/inventory/low-stock');
-        if (lowStockRes?.data && Array.isArray(lowStockRes.data)) {
-          lowItems = lowStockRes.data;
+      if (!apiStatus.isOffline()) {
+        // 1. Primary query: Dedicated backend low-stock endpoint
+        try {
+          const lowStockRes = await apiClient.get('/inventory/low-stock');
+          if (lowStockRes?.data && Array.isArray(lowStockRes.data)) {
+            lowItems = lowStockRes.data;
+          }
+        } catch {
+          apiStatus.setOffline(true);
         }
-      } catch (err) {
-        console.warn('Backend /inventory/low-stock error, checking products:', err.message);
+
+        // 2. Secondary fallback: Query products directly
+        if (lowItems.length === 0 && !apiStatus.isOffline()) {
+          try {
+            const prodsRes = await apiClient.get('/products', { limit: 100, isActive: 'all' });
+            const allProds = Array.isArray(prodsRes?.data) ? prodsRes.data : [];
+            lowItems = allProds.filter((p) => {
+              const stock = Number(p.stock ?? 0);
+              const thresh = Number(p.minThreshold ?? p.min_threshold ?? 10);
+              return stock <= thresh;
+            });
+          } catch {
+            apiStatus.setOffline(true);
+          }
+        }
       }
 
-      // 2. Secondary fallback: Query products directly
       if (lowItems.length === 0) {
-        try {
-          const prodsRes = await apiClient.get('/products', { limit: 100, isActive: 'all' });
-          const allProds = Array.isArray(prodsRes?.data) ? prodsRes.data : [];
-          lowItems = allProds.filter((p) => {
-            const stock = Number(p.stock ?? 0);
-            const thresh = Number(p.minThreshold ?? p.min_threshold ?? 10);
-            return stock <= thresh;
-          });
-        } catch (e) {
-          const cachedProds = await productsStockService.getProducts();
-          lowItems = (cachedProds || []).filter((p) => {
-            const stock = Number(p.stock ?? 0);
-            const thresh = Number(p.minThreshold ?? 10);
-            return stock <= thresh;
-          });
-        }
+        const cachedProds = await productsStockService.getProducts();
+        lowItems = (cachedProds || []).filter((p) => {
+          const stock = Number(p.stock ?? 0);
+          const thresh = Number(p.minThreshold ?? 10);
+          return stock <= thresh;
+        });
       }
 
       // 3. Store information and Customer Khata dues
-      const [storeData, custData] = await Promise.all([
-        apiClient.get('/auth/store-info').catch(() => null),
-        apiClient.get('/customers').catch(() => null),
-      ]);
+      let storeData = null;
+      let custData = null;
+      if (!apiStatus.isOffline()) {
+        const [s, c] = await Promise.all([
+          apiClient.get('/auth/store-info').catch(() => null),
+          apiClient.get('/customers').catch(() => null),
+        ]);
+        storeData = s;
+        custData = c;
+      }
 
       if (storeData?.data) {
         setStoreInfo(storeData.data);
@@ -365,8 +377,8 @@ export default function TopHeader({
         customers: matchedCustomers,
         invoices: matchedInvoices,
       });
-    } catch (err) {
-      console.warn('Search query error:', err.message);
+    } catch {
+      // quiet search fallback
     } finally {
       setIsSearching(false);
     }
