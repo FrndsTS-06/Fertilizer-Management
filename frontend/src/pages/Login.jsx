@@ -3,7 +3,16 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Login({ onNavigate }) {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
+
+  const getSavedLoginEmail = () => {
+    try {
+      const saved = localStorage.getItem('fts_custom_login_email');
+      if (saved && saved.trim()) return saved.trim();
+    } catch {}
+    return 'admin@fts.com';
+  };
+
+  const [email, setEmail] = useState(getSavedLoginEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

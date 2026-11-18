@@ -84,10 +84,16 @@ export function AuthProvider({ children }) {
       }
       throw new Error(res?.message || 'Invalid server login response');
     } catch (err) {
-      // In offline / fallback mode: allow instant demo login with quick-fill credentials
+      // In offline / fallback mode: allow instant demo login
       const normalized = (email || '').toLowerCase().trim();
+      let customSavedEmail = '';
+      try {
+        customSavedEmail = (localStorage.getItem('fts_custom_login_email') || '').toLowerCase().trim();
+      } catch {}
+
       const isKnownDemo =
-        (normalized === 'admin@fts.com' ||
+        (normalized === customSavedEmail ||
+         normalized === 'admin@fts.com' ||
          normalized === 'admin@fertilizershop.local' ||
          normalized === 'cashier@fertilizershop.local' ||
          normalized === 'admin@fertilizer.test') &&
@@ -116,6 +122,11 @@ export function AuthProvider({ children }) {
     setUser((prev) => {
       const updated = { ...prev, ...partialUser };
       tokenStorage.setUser(updated);
+      if (updated?.email) {
+        try {
+          localStorage.setItem('fts_custom_login_email', updated.email.trim().toLowerCase());
+        } catch {}
+      }
       return updated;
     });
   };

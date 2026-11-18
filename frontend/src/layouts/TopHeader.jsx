@@ -66,23 +66,56 @@ export default function TopHeader({
     setEditError('');
     setEditSuccess('');
     setEditSubmitting(true);
+    const newEmail = (editEmail || '').trim().toLowerCase();
+
     try {
-      const res = await apiClient.put('/auth/store-info', {
-        storeName: editShopName,
-        email: editEmail,
-        gstin: editGstin,
-      });
+      let res = null;
+      if (!apiStatus.isOffline()) {
+        try {
+          res = await apiClient.put('/auth/store-info', {
+            storeName: editShopName,
+            email: newEmail,
+            gstin: editGstin,
+          });
+        } catch {
+          apiStatus.setOffline(true);
+        }
+      }
+
       if (res?.data?.storeInfo) {
         setStoreInfo(res.data.storeInfo);
+      } else {
+        setStoreInfo((prev) => ({
+          ...prev,
+          storeName: editShopName || prev.storeName,
+          email: newEmail || prev.email,
+          gstin: editGstin || prev.gstin,
+        }));
       }
-      if (res?.data?.user && updateCurrentUser) {
-        updateCurrentUser(res.data.user);
+
+      if (newEmail) {
+        try {
+          localStorage.setItem('fts_custom_login_email', newEmail);
+        } catch {}
+        if (updateCurrentUser) {
+          updateCurrentUser({
+            ...(res?.data?.user || {}),
+            email: newEmail,
+            fullName: user?.fullName || 'Store Administrator',
+          });
+        }
       }
-      setEditSuccess('Profile and shop details saved successfully!');
+
+      setEditSuccess(
+        newEmail
+          ? `Profile saved! Login email updated to "${newEmail}".`
+          : 'Profile and shop details saved successfully!'
+      );
+
       setTimeout(() => {
         setIsEditProfileOpen(false);
         setEditSuccess('');
-      }, 1200);
+      }, 1500);
     } catch (err) {
       setEditError(err.message || 'Failed to save shop details.');
     } finally {

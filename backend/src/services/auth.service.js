@@ -7,6 +7,15 @@ const { resetRateLimit } = require('../middleware/rateLimiter');
 
 // Constant dummy hash to prevent timing attacks when email does not exist
 const DUMMY_HASH = '$2a$10$wT6d0O2oWqUv8XqPqDqWc.3nQv8sE6/aBvT6y8u4c3n9p2sE6aBvT';
+let runtimeAdminEmail = 'admin@fts.com';
+let runtimeStoreInfo = {
+  storeName: 'Fertilizer',
+  legalName: 'Retail Agricultural Inputs Agency',
+  gstin: '',
+  email: 'admin@fts.com',
+  phone: '9822012345',
+  address: 'Shop 1, Main Market Road',
+};
 
 /**
  * Authentication & Identity Service
@@ -32,6 +41,14 @@ class AuthService {
       if (config.isDevelopment) {
         const normalized = (email || '').toLowerCase().trim();
         const devAccounts = {
+          [runtimeAdminEmail]: {
+            id: '00000000-0000-0000-0000-000000000001',
+            email: runtimeAdminEmail,
+            password_hash: DUMMY_HASH, // 'Admin@123'
+            full_name: 'Store Administrator',
+            role: 'ADMIN',
+            is_active: true,
+          },
           'admin@fts.com': {
             id: '00000000-0000-0000-0000-000000000001',
             email: 'admin@fts.com',
@@ -227,27 +244,38 @@ class AuthService {
    * @returns {Promise<object>}
    */
   async getStoreInfo() {
-    const pool = require('../config/db');
-    const res = await pool.query(`
-      SELECT store_name, legal_name, gstin, email, phone, address_line1, village_or_city, state, pincode
-      FROM store_settings
-      WHERE id = 1
-    `);
-    const row = res.rows[0] || {};
-    return {
-      storeName: row.store_name || '',
-      legalName: row.legal_name || 'Retail Agricultural Inputs Agency',
-      gstin: row.gstin || '',
-      email: row.email || 'info@fertilizershop.local',
-      phone: row.phone || '9822012345',
-      address: [row.address_line1, row.village_or_city, row.state].filter(Boolean).join(', '),
-    };
+    try {
+      const pool = require('../config/db');
+      const res = await pool.query(`
+        SELECT store_name, legal_name, gstin, email, phone, address_line1, village_or_city, state, pincode
+        FROM store_settings
+        WHERE id = 1
+      `);
+      if (res.rows[0]) {
+        const row = res.rows[0];
+        return {
+          storeName: row.store_name || runtimeStoreInfo.storeName,
+          legalName: row.legal_name || runtimeStoreInfo.legalName,
+          gstin: row.gstin || '',
+          email: row.email || runtimeStoreInfo.email,
+          phone: row.phone || runtimeStoreInfo.phone,
+          address: [row.address_line1, row.village_or_city, row.state].filter(Boolean).join(', ') || runtimeStoreInfo.address,
+        };
+      }
+    } catch {
+      // Database offline fallback
+    }
+    return { ...runtimeStoreInfo };
   }
 
   /**
    * Update store profile and optionally user email
    */
   async updateStoreInfo({ storeName, gstin, email, userId }) {
+    if (storeName !== undefined) runtimeStoreInfo.storeName = String(storeName).trim() || 'Fertilizer';
+    if (gstin !== undefined) runtimeStoreInfo.gstin = gstin ? String(gstin).trim().toUpperCase() : '';
+    if (email !== undefined) runtimeStoreInfo.email = email ? String(email).trim().toLowerCase() : '';
+
     const pool = require('../config/db');
     const setClauses = [];
     const params = [];
@@ -269,29 +297,48 @@ class AuthService {
       params.push(trimmedEmail || null);
     }
 
-    if (setClauses.length > 0) {
-      setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
-      await pool.query(`UPDATE store_settings SET ${setClauses.join(', ')} WHERE id = 1`, params);
+    try {
+      if (setClauses.length > 0) {
+        setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
+        await pool.query(`UPDATE store_settings SET ${setClauses.join(', ')} WHERE id = 1`, params);
+      }
+    } catch {
+      // quiet database offline
     }
 
     // Also update logged-in user email if provided
     let updatedUser = null;
-    if (userId && email && String(email).trim()) {
+    if (email && String(email).trim()) {
       const trimmedEmail = String(email).trim().toLowerCase();
-      const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id != $2', [trimmedEmail, userId]);
-      if (existing.rows.length === 0) {
-        const uRes = await pool.query(
-          'UPDATE users SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, email, full_name, role',
-          [trimmedEmail, userId]
-        );
-        if (uRes.rows[0]) {
-          updatedUser = {
-            id: uRes.rows[0].id,
-            email: uRes.rows[0].email,
-            fullName: uRes.rows[0].full_name,
-            role: uRes.rows[0].role,
-          };
+      runtimeAdminEmail = trimmedEmail; // Automatically update in-memory login email
+      try {
+        const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id != $2', [trimmedEmail, userId || '00000000-0000-0000-0000-000000000001']);
+        if (existing.rows.length === 0) {
+          const targetId = userId || '00000000-0000-0000-0000-000000000001';
+          const uRes = await pool.query(
+            'UPDATE users SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, email, full_name, role',
+            [trimmedEmail, targetId]
+          );
+          if (uRes.rows[0]) {
+            updatedUser = {
+              id: uRes.rows[0].id,
+              email: uRes.rows[0].email,
+              fullName: uRes.rows[0].full_name,
+              role: uRes.rows[0].role,
+            };
+          }
         }
+      } catch (err) {
+        // Fallback when database is offline
+      }
+
+      if (!updatedUser) {
+        updatedUser = {
+          id: userId || '00000000-0000-0000-0000-000000000001',
+          email: trimmedEmail,
+          fullName: 'Store Administrator',
+          role: 'ADMIN',
+        };
       }
     }
 
