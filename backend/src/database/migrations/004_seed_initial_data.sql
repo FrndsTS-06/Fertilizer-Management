@@ -72,13 +72,13 @@ ON CONFLICT (name) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
 -- 4. SEED INITIAL USERS (Admin & Cashier accounts)
--- Default bcrypt hash for initial password: 'Password@123'
--- ($2a$10$wT6d0O2oWqUv8XqPqDqWc.3nQv8sE6/aBvT6y8u4c3n9p2sE6aBvT)
+-- Default bcrypt hash for Admin@123: '$2b$10$ANV/kll7EJDGgQ3LGVfxq.bsAoi2CT70Dn2kS7BiJ36kBaWJ3Ssxu'
 -- ----------------------------------------------------------------------------
 INSERT INTO users (email, password_hash, full_name, role, is_active) VALUES
+    ('admin@fts.com', '$2b$10$ANV/kll7EJDGgQ3LGVfxq.bsAoi2CT70Dn2kS7BiJ36kBaWJ3Ssxu', 'Store Administrator', 'ADMIN', TRUE),
     ('admin@fertilizershop.local', '$2a$10$wT6d0O2oWqUv8XqPqDqWc.3nQv8sE6/aBvT6y8u4c3n9p2sE6aBvT', 'Store Administrator', 'ADMIN', TRUE),
     ('cashier@fertilizershop.local', '$2a$10$wT6d0O2oWqUv8XqPqDqWc.3nQv8sE6/aBvT6y8u4c3n9p2sE6aBvT', 'Billing Operator', 'STAFF', TRUE)
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 -- ----------------------------------------------------------------------------
 -- 5. SEED INITIAL PRODUCTS (Matching frontend catalog baseline)

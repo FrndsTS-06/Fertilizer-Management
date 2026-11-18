@@ -72,6 +72,6 @@ npm run dev
 
 ---
 
-## 🔑 Default Accounts (from Seed)
-- **Store Administrator**: `admin@fertilizershop.local` / `Password@123`
+## 🔑 Default Accounts
+- **Store Administrator**: `admin@fts.com` / `Admin@123`
 - **Cashier / Staff**: `cashier@fertilizershop.local` / `Password@123`

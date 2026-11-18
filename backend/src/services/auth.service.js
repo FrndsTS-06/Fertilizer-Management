@@ -32,6 +32,14 @@ class AuthService {
       if (config.isDevelopment) {
         const normalized = (email || '').toLowerCase().trim();
         const devAccounts = {
+          'admin@fts.com': {
+            id: '00000000-0000-0000-0000-000000000001',
+            email: 'admin@fts.com',
+            password_hash: DUMMY_HASH, // 'Admin@123'
+            full_name: 'Store Administrator',
+            role: 'ADMIN',
+            is_active: true,
+          },
           'admin@fertilizershop.local': {
             id: '00000000-0000-0000-0000-000000000001',
             email: 'admin@fertilizershop.local',
@@ -59,7 +67,7 @@ class AuthService {
         };
         if (devAccounts[normalized]) {
           user = devAccounts[normalized];
-          if (password === 'Test@12345' || password === 'Password@123') {
+          if (password === 'Admin@123' || password === 'Test@12345' || password === 'Password@123') {
             const tokenPayload = {
               id: user.id,
               email: user.email,
@@ -79,6 +87,7 @@ class AuthService {
               },
             };
           }
+          throw new UnauthorizedError('Invalid email or password');
         }
       }
       throw dbError;

@@ -222,7 +222,7 @@ export default function Login({ onNavigate }) {
                 value={email}
                 onChange={handleEmailChange}
                 onBlur={handleEmailBlur}
-                placeholder="e.g. admin@fertilizershop.local"
+                placeholder="e.g. admin@fts.com"
                 disabled={isSubmitting}
                 aria-invalid={!!fieldErrors.email}
                 aria-describedby="email-helper-text"

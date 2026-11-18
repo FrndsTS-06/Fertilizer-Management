@@ -27,8 +27,8 @@ Authenticates user credentials and issues a signed JWT.
 * **Request Body**:
   ```json
   {
-    "email": "admin@fertilizershop.local",
-    "password": "Password@123"
+    "email": "admin@fts.com",
+    "password": "Admin@123"
   }
   ```
 * **Success Response (`200 OK`)**:
@@ -41,7 +41,7 @@ Authenticates user credentials and issues a signed JWT.
       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
       "user": {
         "id": "80daf063-ed13-4a82-b411-3c7eadcc5a81",
-        "email": "admin@fertilizershop.local",
+        "email": "admin@fts.com",
         "fullName": "System Administrator",
         "role": "ADMIN"
       }

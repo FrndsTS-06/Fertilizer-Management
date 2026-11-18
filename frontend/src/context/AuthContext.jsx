@@ -87,10 +87,11 @@ export function AuthProvider({ children }) {
       // In offline / fallback mode: allow instant demo login with quick-fill credentials
       const normalized = (email || '').toLowerCase().trim();
       const isKnownDemo =
-        (normalized === 'admin@fertilizershop.local' ||
+        (normalized === 'admin@fts.com' ||
+         normalized === 'admin@fertilizershop.local' ||
          normalized === 'cashier@fertilizershop.local' ||
          normalized === 'admin@fertilizer.test') &&
-        (password === 'Password@123' || password === 'Test@12345');
+        (password === 'Admin@123' || password === 'Password@123' || password === 'Test@12345');
 
       if (isKnownDemo && (err.message?.includes('Failed to fetch') || err.message?.includes('Network Error') || !err.status || err.isHtmlFallback)) {
         apiStatus.setOffline(true);
@@ -98,7 +99,7 @@ export function AuthProvider({ children }) {
           id: normalized === 'cashier@fertilizershop.local' ? '00000000-0000-0000-0000-000000000002' : '00000000-0000-0000-0000-000000000001',
           email: normalized,
           role: normalized === 'cashier@fertilizershop.local' ? 'STAFF' : 'ADMIN',
-          fullName: normalized === 'cashier@fertilizershop.local' ? 'Billing Operator (Demo)' : 'Store Administrator (Demo)',
+          fullName: normalized === 'cashier@fertilizershop.local' ? 'Billing Operator' : 'Store Administrator',
         };
         const demoToken = 'demo-jwt-offline-token-' + Date.now();
         tokenStorage.setToken(demoToken);

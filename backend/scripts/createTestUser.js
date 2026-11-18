@@ -17,9 +17,9 @@ const { query, closePool } = require('../src/config/db');
 
 // Development-only configuration
 const TEST_USER = {
-  email: 'admin@fertilizer.test'.toLowerCase(),
-  rawPassword: 'Test@12345',
-  fullName: 'Test Administrator',
+  email: 'admin@fts.com'.toLowerCase(),
+  rawPassword: 'Admin@123',
+  fullName: 'Store Administrator',
   role: 'ADMIN', // Must match DB CHECK (role IN ('ADMIN', 'STAFF'))
 };
 
