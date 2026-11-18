@@ -125,11 +125,21 @@ async function request(endpoint, options = {}) {
 
     // Try parsing JSON response
     let responseData;
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
       responseData = await response.json();
     } else {
-      responseData = { message: await response.text() };
+      const rawText = await response.text();
+      // If server returned an HTML document (SPA static host routing unknown /api endpoints to index.html)
+      if (rawText.trim().startsWith('<!DOCTYPE') || rawText.includes('<html')) {
+        const htmlError = new Error(
+          `API endpoint (${endpoint}) returned an HTML document instead of JSON. Backend Web Service may be offline or not configured.`
+        );
+        htmlError.isHtmlFallback = true;
+        htmlError.status = 502;
+        throw htmlError;
+      }
+      responseData = { message: rawText };
     }
 
     if (!response.ok) {

@@ -29,7 +29,7 @@ export default function Dashboard({ subItem = 'sales-summary', onNavigate }) {
         setSales(saleRes.data);
       }
     } catch (err) {
-      console.warn('Live API unreachable, using local services:', err);
+      console.warn('Live API unreachable, using local services:', err?.message || 'offline mode');
       try {
         const [fallbackProds, fallbackSalesList] = await Promise.all([
           productsStockService.getProducts(),
