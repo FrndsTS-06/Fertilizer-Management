@@ -27,6 +27,8 @@ export default function ProductForm({
     initialStock: '0',
   });
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [priceWarning, setPriceWarning] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Camera & Image Upload States
@@ -127,6 +129,8 @@ export default function ProductForm({
       });
     }
     setError('');
+    setFieldErrors({});
+    setPriceWarning('');
     stopCameraStream();
   }, [product, isOpen]);
 
@@ -141,7 +145,24 @@ export default function ProductForm({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'costPrice' || name === 'price') {
+        const c = Number(name === 'costPrice' ? value : next.costPrice);
+        const p = Number(name === 'price' ? value : next.price);
+        if (!isNaN(c) && !isNaN(p) && c >= 0 && p >= 0 && p < c && value !== '') {
+          setPriceWarning(`⚠️ Selling Price (₹${p}) is lower than Purchase Cost (₹${c}). Loss: ₹${(c - p).toFixed(2)}/unit.`);
+        } else {
+          setPriceWarning('');
+        }
+      }
+      return next;
+    });
+
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+    setError('');
   };
 
   const handlePackageTypeChange = (e) => {
@@ -153,6 +174,7 @@ export default function ProductForm({
       customPackageSize: '',
       customUnit: newType === 'Others' ? prev.customUnit : '',
     }));
+    setFieldErrors((prev) => ({ ...prev, customUnit: '', customPackageSize: '' }));
   };
 
   // Handle Image File Upload (Browse from disk)
@@ -235,43 +257,114 @@ export default function ProductForm({
 
   const handleModalClose = () => {
     stopCameraStream();
+    setError('');
+    setFieldErrors({});
+    setPriceWarning('');
     onClose();
+  };
+
+  const validateProductForm = () => {
+    const errors = {};
+    let warning = '';
+
+    // 1. Product Name: non-empty
+    if (!formData.name || !formData.name.trim()) {
+      errors.name = 'Product name is required and cannot be empty.';
+    }
+
+    // 2. Purchase Cost Price: non-negative number (>= 0)
+    if (formData.costPrice === '' || formData.costPrice === null || formData.costPrice === undefined) {
+      errors.costPrice = 'Purchase Price (₹) is mandatory.';
+    } else {
+      const costNum = Number(formData.costPrice);
+      if (isNaN(costNum)) {
+        errors.costPrice = 'Purchase Price must be a valid numeric amount.';
+      } else if (costNum < 0) {
+        errors.costPrice = 'Purchase Price cannot be negative (must be ₹0 or greater).';
+      }
+    }
+
+    // 3. Selling Price: non-negative number (>= 0)
+    if (formData.price === '' || formData.price === null || formData.price === undefined) {
+      errors.price = 'Selling Price (₹) is mandatory.';
+    } else {
+      const priceNum = Number(formData.price);
+      if (isNaN(priceNum)) {
+        errors.price = 'Selling Price must be a valid numeric amount.';
+      } else if (priceNum < 0) {
+        errors.price = 'Selling Price cannot be negative (must be ₹0 or greater).';
+      }
+    }
+
+    // 4. Selling Price >= Purchase Cost Price warning and validation
+    const costNum = Number(formData.costPrice);
+    const priceNum = Number(formData.price);
+    if (!isNaN(costNum) && !isNaN(priceNum) && costNum >= 0 && priceNum >= 0) {
+      if (priceNum < costNum) {
+        warning = `Pricing Warning: Selling Price (₹${priceNum}) is lower than Purchase Cost (₹${costNum}). Loss of ₹${(costNum - priceNum).toFixed(2)} per unit.`;
+        errors.price = `Selling price (₹${priceNum}) cannot be less than purchase cost price (₹${costNum}).`;
+      }
+    }
+
+    // 5. Min Stock Alert: non-negative integer (0, 1, 2...)
+    if (formData.minThreshold === '' || formData.minThreshold === null || formData.minThreshold === undefined) {
+      errors.minThreshold = 'Minimum stock alert threshold is mandatory.';
+    } else {
+      const minNum = Number(formData.minThreshold);
+      if (isNaN(minNum) || !Number.isInteger(minNum) || minNum < 0) {
+        errors.minThreshold = 'Minimum stock alert threshold must be a non-negative whole number (0, 1, 2...).';
+      }
+    }
+
+    // 6. Product Initial Stock (for new products): non-negative number
+    if (!isEdit) {
+      if (formData.initialStock === '' || formData.initialStock === null || formData.initialStock === undefined) {
+        errors.initialStock = 'Product count is mandatory.';
+      } else {
+        const stockNum = Number(formData.initialStock);
+        if (isNaN(stockNum) || stockNum < 0) {
+          errors.initialStock = 'Product count must be a non-negative number (0 or greater).';
+        }
+      }
+    }
+
+    // 7. Packaging Custom Size / Unit
+    if (formData.packageType === 'Others') {
+      if (!formData.customUnit || !formData.customUnit.trim()) {
+        errors.customUnit = 'Please enter custom packaging unit.';
+      }
+    } else if (formData.packageSize === 'Custom Size') {
+      if (!formData.customPackageSize || !formData.customPackageSize.trim()) {
+        errors.customPackageSize = `Please specify custom size for ${formData.packageType}.`;
+      }
+    }
+
+    return { errors, warning };
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      setError('Product name is required.');
-      return;
+
+    // Clear validation errors before submit
+    setError('');
+    setFieldErrors({});
+    setPriceWarning('');
+
+    const { errors, warning } = validateProductForm();
+    if (warning) {
+      setPriceWarning(warning);
     }
 
-    if (formData.costPrice === '' || formData.costPrice === null || Number(formData.costPrice) <= 0) {
-      setError('Purchase Price (₹) is mandatory and must be greater than 0.');
-      return;
-    }
-
-    if (formData.price === '' || formData.price === null || Number(formData.price) <= 0) {
-      setError('Selling Price (₹) is mandatory and must be greater than 0.');
-      return;
-    }
-
-    if (!isEdit && (formData.initialStock === '' || formData.initialStock === null || isNaN(Number(formData.initialStock)) || Number(formData.initialStock) < 0)) {
-      setError('Product Count is mandatory and must be 0 or greater.');
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError(Object.values(errors)[0]);
       return;
     }
 
     let effectiveUnit = '';
     if (formData.packageType === 'Others') {
-      if (!formData.customUnit.trim()) {
-        setError('Please enter custom packaging unit.');
-        return;
-      }
       effectiveUnit = formData.customUnit.trim();
     } else if (formData.packageSize === 'Custom Size') {
-      if (!formData.customPackageSize.trim()) {
-        setError(`Please enter custom ${formData.packageType} size.`);
-        return;
-      }
       effectiveUnit = `${formData.packageType} (${formData.customPackageSize.trim()})`;
     } else {
       effectiveUnit = `${formData.packageType} (${formData.packageSize})`;
@@ -393,7 +486,7 @@ export default function ProductForm({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '1.15rem 1.35rem', overflowY: 'auto', flex: 1 }}>
+        <form onSubmit={handleSubmit} noValidate style={{ padding: '1.15rem 1.35rem', overflowY: 'auto', flex: 1 }}>
           {error && (
             <div style={{
               backgroundColor: '#FEF2F2',
@@ -404,17 +497,28 @@ export default function ProductForm({
               marginBottom: '1rem',
               fontSize: '0.85rem',
               fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
             }}>
-              ⚠️ {error}
+              <span>⚠️</span>
+              <div>{error}</div>
             </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
             {/* Product Name */}
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
-                Product Name *
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: fieldErrors.name ? '#DC2626' : '#1E293B' }}>
+                  Product Name *
+                </label>
+                {fieldErrors.name && (
+                  <span style={{ fontSize: '0.725rem', color: '#DC2626', fontWeight: '600' }}>
+                    Required
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 name="name"
@@ -422,17 +526,29 @@ export default function ProductForm({
                 value={formData.name}
                 onChange={handleChange}
                 required
+                aria-invalid={!!fieldErrors.name}
                 style={{
                   width: '100%',
                   padding: '0.6rem 0.85rem',
                   borderRadius: '8px',
-                  border: '1.5px solid #CBD5E1',
+                  border: fieldErrors.name ? '1.5px solid #EF4444' : '1.5px solid #CBD5E1',
+                  backgroundColor: fieldErrors.name ? '#FEF2F2' : '#FFFFFF',
                   fontSize: '0.875rem',
                   outline: 'none',
+                  boxSizing: 'border-box',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
-                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+                onFocus={(e) => (e.target.style.borderColor = fieldErrors.name ? '#DC2626' : '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = fieldErrors.name ? '#EF4444' : '#CBD5E1')}
               />
+              {fieldErrors.name ? (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#DC2626', fontWeight: '500' }}>
+                  ⚠️ {fieldErrors.name}
+                </p>
+              ) : (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#64748B' }}>
+                  Specify the full chemical or trade name and nutrient grade.
+                </p>
+              )}
             </div>
 
             {/* Category */}
@@ -452,6 +568,7 @@ export default function ProductForm({
                   fontSize: '0.875rem',
                   backgroundColor: '#FFFFFF',
                   outline: 'none',
+                  boxSizing: 'border-box',
                 }}
                 onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
                 onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
@@ -482,6 +599,7 @@ export default function ProductForm({
                   border: '1.5px solid #CBD5E1',
                   fontSize: '0.875rem',
                   outline: 'none',
+                  boxSizing: 'border-box',
                 }}
                 onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
                 onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
@@ -518,6 +636,7 @@ export default function ProductForm({
                       outline: 'none',
                       color: '#0B1F3A',
                       fontWeight: '600',
+                      boxSizing: 'border-box',
                     }}
                     onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
                     onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
@@ -550,6 +669,7 @@ export default function ProductForm({
                         outline: 'none',
                         color: '#0B1F3A',
                         fontWeight: '600',
+                        boxSizing: 'border-box',
                       }}
                       onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
                       onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
@@ -566,13 +686,13 @@ export default function ProductForm({
                 {/* 3. Custom Unit Input when 'Others' selected */}
                 {formData.packageType === 'Others' && (
                   <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: fieldErrors.customUnit ? '#DC2626' : '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
                       Custom Packaging Unit *
                     </label>
                     <input
                       type="text"
                       name="customUnit"
-                      placeholder="Enter custom packaging unit"
+                      placeholder="Enter custom packaging unit (e.g. 50kg Drum)"
                       value={formData.customUnit}
                       onChange={handleChange}
                       required
@@ -580,29 +700,35 @@ export default function ProductForm({
                         width: '100%',
                         padding: '0.6rem 0.85rem',
                         borderRadius: '8px',
-                        border: '1.5px solid #2563EB',
+                        border: fieldErrors.customUnit ? '1.5px solid #EF4444' : '1.5px solid #2563EB',
+                        backgroundColor: fieldErrors.customUnit ? '#FEF2F2' : '#FFFFFF',
                         fontSize: '0.875rem',
-                        backgroundColor: '#FFFFFF',
                         outline: 'none',
                         color: '#0B1F3A',
                         fontWeight: '600',
+                        boxSizing: 'border-box',
                       }}
                       onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
-                      onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+                      onBlur={(e) => (e.target.style.borderColor = fieldErrors.customUnit ? '#EF4444' : '#CBD5E1')}
                     />
+                    {fieldErrors.customUnit && (
+                      <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#DC2626', fontWeight: '500' }}>
+                        ⚠️ {fieldErrors.customUnit}
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {/* 4. Custom Size input when 'Custom Size' is selected */}
                 {formData.packageType !== 'Others' && formData.packageSize === 'Custom Size' && (
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: fieldErrors.customPackageSize ? '#DC2626' : '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
                       Specify Custom {formData.packageType} Size *
                     </label>
                     <input
                       type="text"
                       name="customPackageSize"
-                      placeholder="Enter custom size"
+                      placeholder="Enter custom size (e.g. 45kgs, 750ml)"
                       value={formData.customPackageSize}
                       onChange={handleChange}
                       required
@@ -610,16 +736,22 @@ export default function ProductForm({
                         width: '100%',
                         padding: '0.6rem 0.85rem',
                         borderRadius: '8px',
-                        border: '1.5px solid #2563EB',
+                        border: fieldErrors.customPackageSize ? '1.5px solid #EF4444' : '1.5px solid #2563EB',
+                        backgroundColor: fieldErrors.customPackageSize ? '#FEF2F2' : '#FFFFFF',
                         fontSize: '0.875rem',
-                        backgroundColor: '#FFFFFF',
                         outline: 'none',
                         color: '#0B1F3A',
                         fontWeight: '600',
+                        boxSizing: 'border-box',
                       }}
                       onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
-                      onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+                      onBlur={(e) => (e.target.style.borderColor = fieldErrors.customPackageSize ? '#EF4444' : '#CBD5E1')}
                     />
+                    {fieldErrors.customPackageSize && (
+                      <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#DC2626', fontWeight: '500' }}>
+                        ⚠️ {fieldErrors.customPackageSize}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -627,89 +759,177 @@ export default function ProductForm({
 
             {/* Purchase Price */}
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
-                Purchase Price (₹) *
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: fieldErrors.costPrice ? '#DC2626' : '#1E293B' }}>
+                  Purchase Price (₹) *
+                </label>
+                {fieldErrors.costPrice && (
+                  <span style={{ fontSize: '0.725rem', color: '#DC2626', fontWeight: '600' }}>
+                    Invalid
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
                 name="costPrice"
-                step="0.5"
+                step="any"
+                min="0"
                 placeholder="0.00"
                 value={formData.costPrice}
                 onChange={handleChange}
                 required
+                aria-invalid={!!fieldErrors.costPrice}
                 style={{
                   width: '100%',
                   padding: '0.6rem 0.85rem',
                   borderRadius: '8px',
-                  border: '1.5px solid #CBD5E1',
+                  border: fieldErrors.costPrice ? '1.5px solid #EF4444' : '1.5px solid #CBD5E1',
+                  backgroundColor: fieldErrors.costPrice ? '#FEF2F2' : '#FFFFFF',
                   fontSize: '0.875rem',
                   outline: 'none',
+                  boxSizing: 'border-box',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
-                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+                onFocus={(e) => (e.target.style.borderColor = fieldErrors.costPrice ? '#DC2626' : '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = fieldErrors.costPrice ? '#EF4444' : '#CBD5E1')}
               />
+              {fieldErrors.costPrice ? (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#DC2626', fontWeight: '500' }}>
+                  ⚠️ {fieldErrors.costPrice}
+                </p>
+              ) : (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#64748B' }}>
+                  Non-negative dealer/supplier acquisition cost (₹).
+                </p>
+              )}
             </div>
 
             {/* Selling Price */}
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
-                Selling Price (₹) *
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: fieldErrors.price ? '#DC2626' : '#1E293B' }}>
+                  Selling Price (₹) *
+                </label>
+                {fieldErrors.price && (
+                  <span style={{ fontSize: '0.725rem', color: '#DC2626', fontWeight: '600' }}>
+                    Invalid
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
                 name="price"
-                step="0.5"
+                step="any"
+                min="0"
                 placeholder="0.00"
                 value={formData.price}
                 onChange={handleChange}
                 required
+                aria-invalid={!!fieldErrors.price}
                 style={{
                   width: '100%',
                   padding: '0.6rem 0.85rem',
                   borderRadius: '8px',
-                  border: '1.5px solid #CBD5E1',
+                  border: fieldErrors.price ? '1.5px solid #EF4444' : '1.5px solid #CBD5E1',
+                  backgroundColor: fieldErrors.price ? '#FEF2F2' : '#FFFFFF',
                   fontSize: '0.875rem',
                   fontWeight: '700',
-                  color: '#2563EB',
+                  color: fieldErrors.price ? '#DC2626' : '#2563EB',
                   outline: 'none',
+                  boxSizing: 'border-box',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
-                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+                onFocus={(e) => (e.target.style.borderColor = fieldErrors.price ? '#DC2626' : '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = fieldErrors.price ? '#EF4444' : '#CBD5E1')}
               />
+              {fieldErrors.price ? (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#DC2626', fontWeight: '500' }}>
+                  ⚠️ {fieldErrors.price}
+                </p>
+              ) : (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#64748B' }}>
+                  Counter retail billing rate for farmers/buyers.
+                </p>
+              )}
             </div>
+
+            {/* Pricing Warning Banner if Price < CostPrice */}
+            {priceWarning && (
+              <div style={{
+                gridColumn: 'span 2',
+                backgroundColor: '#FFFBEB',
+                border: '1.5px solid #FCD34D',
+                borderRadius: '8px',
+                padding: '0.65rem 0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.8rem',
+                color: '#92400E',
+                fontWeight: '600',
+              }}>
+                <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+                <div>{priceWarning}</div>
+              </div>
+            )}
 
             {/* Minimum-Stock Alert */}
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
-                Min Stock Alert *
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: fieldErrors.minThreshold ? '#DC2626' : '#1E293B' }}>
+                  Min Stock Alert *
+                </label>
+                {fieldErrors.minThreshold && (
+                  <span style={{ fontSize: '0.725rem', color: '#DC2626', fontWeight: '600' }}>
+                    Whole number
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
                 name="minThreshold"
+                step="1"
+                min="0"
                 placeholder="10"
                 value={formData.minThreshold}
                 onChange={handleChange}
                 required
+                aria-invalid={!!fieldErrors.minThreshold}
                 style={{
                   width: '100%',
                   padding: '0.6rem 0.85rem',
                   borderRadius: '8px',
-                  border: '1.5px solid #CBD5E1',
+                  border: fieldErrors.minThreshold ? '1.5px solid #EF4444' : '1.5px solid #CBD5E1',
+                  backgroundColor: fieldErrors.minThreshold ? '#FEF2F2' : '#FFFFFF',
                   fontSize: '0.875rem',
                   outline: 'none',
+                  boxSizing: 'border-box',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
-                onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+                onFocus={(e) => (e.target.style.borderColor = fieldErrors.minThreshold ? '#DC2626' : '#2563EB')}
+                onBlur={(e) => (e.target.style.borderColor = fieldErrors.minThreshold ? '#EF4444' : '#CBD5E1')}
               />
+              {fieldErrors.minThreshold ? (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#DC2626', fontWeight: '500' }}>
+                  ⚠️ {fieldErrors.minThreshold}
+                </p>
+              ) : (
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#64748B' }}>
+                  Non-negative integer (e.g. 10). Triggers inventory alerts.
+                </p>
+              )}
             </div>
 
             {/* Product Count (Only for new product creation) */}
             {!isEdit && (
               <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
-                  Product Count *
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', color: fieldErrors.initialStock ? '#DC2626' : '#1E293B' }}>
+                    Product Count *
+                  </label>
+                  {fieldErrors.initialStock && (
+                    <span style={{ fontSize: '0.725rem', color: '#DC2626', fontWeight: '600' }}>
+                      Invalid
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   name="initialStock"
@@ -718,17 +938,30 @@ export default function ProductForm({
                   onChange={handleChange}
                   required
                   min="0"
+                  step="1"
+                  aria-invalid={!!fieldErrors.initialStock}
                   style={{
                     width: '100%',
                     padding: '0.6rem 0.85rem',
                     borderRadius: '8px',
-                    border: '1.5px solid #CBD5E1',
+                    border: fieldErrors.initialStock ? '1.5px solid #EF4444' : '1.5px solid #CBD5E1',
+                    backgroundColor: fieldErrors.initialStock ? '#FEF2F2' : '#FFFFFF',
                     fontSize: '0.875rem',
                     outline: 'none',
+                    boxSizing: 'border-box',
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = '#2563EB')}
-                  onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+                  onFocus={(e) => (e.target.style.borderColor = fieldErrors.initialStock ? '#DC2626' : '#2563EB')}
+                  onBlur={(e) => (e.target.style.borderColor = fieldErrors.initialStock ? '#EF4444' : '#CBD5E1')}
                 />
+                {fieldErrors.initialStock ? (
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#DC2626', fontWeight: '500' }}>
+                    ⚠️ {fieldErrors.initialStock}
+                  </p>
+                ) : (
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.725rem', color: '#64748B' }}>
+                    Opening warehouse quantity (must be 0 or more).
+                  </p>
+                )}
               </div>
             )}
 

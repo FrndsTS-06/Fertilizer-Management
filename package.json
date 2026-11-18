@@ -8,6 +8,12 @@
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "node backend/src/server.js",
     "start": "node backend/src/server.js",
-    "build": "npm --prefix frontend run build"
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix backend test",
+    "db:check": "npm --prefix backend run db:check",
+    "migrate": "npm --prefix backend run migrate",
+    "migrate:status": "npm --prefix backend run migrate:status",
+    "migrate:verify": "npm --prefix backend run migrate:verify",
+    "seed:test-user": "npm --prefix backend run seed:test-user"
   }
 }

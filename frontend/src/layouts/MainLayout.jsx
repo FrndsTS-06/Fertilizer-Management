@@ -144,6 +144,117 @@ export default function MainLayout({
         }}>
           {children}
         </main>
+
+        {/* Global Footer */}
+        <footer style={{
+          backgroundColor: '#FFFFFF',
+          borderTop: '1px solid #E2E8F0',
+          padding: isMobile ? '1rem' : '1.25rem 2rem',
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.75rem',
+          fontSize: '0.8rem',
+          color: '#64748B',
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: '700', color: '#0B1F3A' }}>🌾 Fertilizer Shop Management</span>
+            <span>•</span>
+            <span>v1.0.0</span>
+            <span>•</span>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              color: '#059669',
+              fontWeight: '600',
+              backgroundColor: '#ECFDF5',
+              padding: '0.15rem 0.5rem',
+              borderRadius: '9999px',
+              fontSize: '0.725rem',
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+              HTTPS Secured
+            </span>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1.25rem',
+            flexWrap: 'wrap',
+          }}>
+            <button
+              onClick={() => onSelectMenu('privacy-policy')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: activeMenu === 'privacy-policy' ? '#2563EB' : '#64748B',
+                fontWeight: activeMenu === 'privacy-policy' ? '700' : '500',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                padding: '0.2rem 0',
+                transition: 'color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#2563EB')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = activeMenu === 'privacy-policy' ? '#2563EB' : '#64748B')}
+            >
+              Privacy Policy
+            </button>
+
+            <button
+              onClick={() => onSelectMenu('terms-and-conditions')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: activeMenu === 'terms-and-conditions' ? '#2563EB' : '#64748B',
+                fontWeight: activeMenu === 'terms-and-conditions' ? '700' : '500',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                padding: '0.2rem 0',
+                transition: 'color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#2563EB')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = activeMenu === 'terms-and-conditions' ? '#2563EB' : '#64748B')}
+            >
+              Terms &amp; Conditions
+            </button>
+
+            <a
+              href="/sitemap.xml"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: '#64748B',
+                textDecoration: 'none',
+                fontSize: '0.8rem',
+                transition: 'color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#2563EB')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#64748B')}
+            >
+              Sitemap
+            </a>
+
+            <a
+              href="/robots.txt"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: '#64748B',
+                textDecoration: 'none',
+                fontSize: '0.8rem',
+                transition: 'color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#2563EB')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#64748B')}
+            >
+              Robots.txt
+            </a>
+          </div>
+        </footer>
       </div>
     </div>
   );

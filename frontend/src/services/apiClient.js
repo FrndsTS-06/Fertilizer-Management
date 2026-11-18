@@ -4,7 +4,7 @@
  * network errors, and session expiration (401).
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'fts_token';
 const USER_KEY = 'fts_user';
 

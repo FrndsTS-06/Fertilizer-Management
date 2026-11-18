@@ -1,0 +1,10 @@
+# Robust.txt / Robots.txt for Fertilizer Shop Management System
+User-agent: *
+Allow: /
+Allow: /privacy-policy
+Allow: /terms-and-conditions
+Disallow: /api/
+Disallow: /backend/
+
+# Host and Sitemap
+Sitemap: https://fertilizershop.local/sitemap.xml

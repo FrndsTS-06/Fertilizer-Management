@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './index.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
@@ -8,16 +8,51 @@ import ProductsStockOverview from './pages/ProductsStockOverview';
 import PurchasesSales from './pages/PurchasesSales';
 import CustomerDetails from './pages/CustomerDetails';
 import Reports from './pages/Reports';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsAndConditions from './pages/TermsAndConditions';
+import NotFound from './pages/NotFound';
+
+// Known valid module routes
+const KNOWN_ROUTES = [
+  'dashboard',
+  'products-stock',
+  'purchase-sales',
+  'customer-details',
+  'reports',
+  'privacy-policy',
+  'terms-and-conditions',
+];
+
+function resolveMenuFromPath(path) {
+  const clean = (path || window.location.pathname).replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (!clean || clean === 'login') return 'dashboard';
+  if (KNOWN_ROUTES.includes(clean)) return clean;
+  return '404';
+}
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
-  const [activeMenu, setActiveMenu] = useState('dashboard');
+  const [activeMenu, setActiveMenu] = useState(() => resolveMenuFromPath());
   const [activeSubItem, setActiveSubItem] = useState('');
   const [globalSearch, setGlobalSearch] = useState('');
+
+  // Synchronize browser history and popstate
+  useEffect(() => {
+    const onPopState = () => {
+      const menu = resolveMenuFromPath(window.location.pathname);
+      setActiveMenu(menu);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const handleSelectMenu = (menuId, subItemId = '') => {
     setActiveMenu(menuId);
     setActiveSubItem(subItemId);
+    const targetPath = menuId === 'dashboard' ? '/' : `/${menuId}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
   };
 
   const handleSearch = (query) => {
@@ -52,8 +87,30 @@ function AppContent() {
     );
   }
 
+  // Publicly accessible pages without requiring login
   if (!isAuthenticated) {
-    return <Login />;
+    if (activeMenu === 'privacy-policy') {
+      return (
+        <div style={{ backgroundColor: '#F8FAFC', minHeight: '100vh' }}>
+          <PrivacyPolicy onNavigate={handleSelectMenu} />
+        </div>
+      );
+    }
+    if (activeMenu === 'terms-and-conditions') {
+      return (
+        <div style={{ backgroundColor: '#F8FAFC', minHeight: '100vh' }}>
+          <TermsAndConditions onNavigate={handleSelectMenu} />
+        </div>
+      );
+    }
+    if (activeMenu === '404') {
+      return (
+        <div style={{ backgroundColor: '#F8FAFC', minHeight: '100vh' }}>
+          <NotFound onNavigate={handleSelectMenu} attemptedPath={window.location.pathname} />
+        </div>
+      );
+    }
+    return <Login onNavigate={handleSelectMenu} />;
   }
 
   const renderActiveModule = () => {
@@ -68,8 +125,14 @@ function AppContent() {
         return <CustomerDetails subItem={activeSubItem} onNavigate={handleSelectMenu} searchQueryProp={globalSearch} />;
       case 'reports':
         return <Reports subItem={activeSubItem} onNavigate={handleSelectMenu} searchQueryProp={globalSearch} />;
+      case 'privacy-policy':
+        return <PrivacyPolicy onNavigate={handleSelectMenu} />;
+      case 'terms-and-conditions':
+        return <TermsAndConditions onNavigate={handleSelectMenu} />;
+      case '404':
+        return <NotFound onNavigate={handleSelectMenu} attemptedPath={window.location.pathname} />;
       default:
-        return <Dashboard onNavigate={handleSelectMenu} searchQueryProp={globalSearch} />;
+        return <NotFound onNavigate={handleSelectMenu} attemptedPath={activeMenu} />;
     }
   };
 

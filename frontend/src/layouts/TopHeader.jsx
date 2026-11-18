@@ -1536,6 +1536,7 @@ export default function TopHeader({
                       alignItems: 'center',
                       gap: '0.5rem',
                       transition: 'all 0.15s ease',
+                      marginBottom: '0.35rem',
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = '#EFF6FF';
@@ -1549,6 +1550,82 @@ export default function TopHeader({
                     }}
                   >
                     <span>🔑</span> Reset Password
+                  </button>
+
+                  {/* Privacy Policy Option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      if (onNavigate) onNavigate('privacy-policy');
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.55rem 0.75rem',
+                      background: '#F8FAFC',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '0.8rem',
+                      color: '#0B1F3A',
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'all 0.15s ease',
+                      marginBottom: '0.35rem',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#EFF6FF';
+                      e.currentTarget.style.borderColor = '#93C5FD';
+                      e.currentTarget.style.color = '#1D4ED8';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#F8FAFC';
+                      e.currentTarget.style.borderColor = '#CBD5E1';
+                      e.currentTarget.style.color = '#0B1F3A';
+                    }}
+                  >
+                    <span>🛡️</span> Privacy Policy
+                  </button>
+
+                  {/* Terms & Conditions Option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      if (onNavigate) onNavigate('terms-and-conditions');
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.55rem 0.75rem',
+                      background: '#F8FAFC',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '0.8rem',
+                      color: '#0B1F3A',
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'all 0.15s ease',
+                      marginBottom: '0.35rem',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#EFF6FF';
+                      e.currentTarget.style.borderColor = '#93C5FD';
+                      e.currentTarget.style.color = '#1D4ED8';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#F8FAFC';
+                      e.currentTarget.style.borderColor = '#CBD5E1';
+                      e.currentTarget.style.color = '#0B1F3A';
+                    }}
+                  >
+                    <span>📜</span> Terms &amp; Conditions
                   </button>
 
                   {/* Sign Out Option */}

@@ -34,7 +34,26 @@ export default function StockAdjustmentForm({
   const [removeReason, setRemoveReason] = useState('Damaged Bags / Broken');
 
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+
+  const handleClose = () => {
+    setError('');
+    setFieldErrors({});
+    onClose();
+  };
+
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setError('');
+    setFieldErrors({});
+    if (newMode === 'UPDATE') {
+      const p = products.find((item) => (item.id === selectedProductId || item.code === selectedProductId));
+      if (p) setUpdateTargetStock(String(p.stock != null ? p.stock : 0));
+    } else if (newMode === 'REMOVE') {
+      setRemoveQuantity('');
+    }
+  };
 
   // Parse existing product unit e.g. "Bags (50 kgs)" or "50kg Bag"
   const parseUnitDetails = (unitStr) => {
@@ -60,6 +79,8 @@ export default function StockAdjustmentForm({
 
   useEffect(() => {
     setMode(initialMode || 'ADD');
+    setError('');
+    setFieldErrors({});
   }, [initialMode, isOpen]);
 
   useEffect(() => {
@@ -86,11 +107,15 @@ export default function StockAdjustmentForm({
     setOverallCost('');
     setRemoveQuantity('');
     setError('');
+    setFieldErrors({});
   }, [initialProduct, products, isOpen]);
 
   // Handle switching product dropdown
   const handleProductSelect = (prodId) => {
     setSelectedProductId(prodId);
+    setError('');
+    setFieldErrors((prev) => ({ ...prev, selectedProductId: '', productName: '', company: '' }));
+
     if (prodId === '__NEW__') {
       setProductName('');
       setCompany('');
@@ -122,6 +147,9 @@ export default function StockAdjustmentForm({
   // Auto-calculate Overall Cost when Purchase for Single or Total Stock changes
   const handlePurchaseForSingleChange = (val) => {
     setPurchaseForSingle(val);
+    setError('');
+    setFieldErrors((prev) => ({ ...prev, purchaseForSingle: '', overallCost: '' }));
+
     const single = Number(val) || 0;
     const count = Number(totalStock) || 0;
     if (val === '' || totalStock === '') {
@@ -133,6 +161,9 @@ export default function StockAdjustmentForm({
 
   const handleTotalStockChange = (val) => {
     setTotalStock(val);
+    setError('');
+    setFieldErrors((prev) => ({ ...prev, totalStock: '', overallCost: '' }));
+
     const count = Number(val) || 0;
     const single = Number(purchaseForSingle) || 0;
     if (val === '' || purchaseForSingle === '') {
@@ -144,6 +175,9 @@ export default function StockAdjustmentForm({
 
   const handleOverallCostChange = (val) => {
     setOverallCost(val);
+    setError('');
+    setFieldErrors((prev) => ({ ...prev, overallCost: '', purchaseForSingle: '' }));
+
     const overall = Number(val) || 0;
     const count = Number(totalStock) || 0;
     if (overall > 0 && count > 0) {

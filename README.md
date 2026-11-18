@@ -52,10 +52,13 @@ fertilizer-shop/
 ```bash
 cd backend
 npm install
-cp ../.env.example .env
-# Update DATABASE_URL in .env
-npx prisma generate --schema=../prisma/schema.prisma
-npx prisma migrate dev --name init --schema=../prisma/schema.prisma
+# Copy and configure environment variables
+cp .env.example .env
+# Ensure PostgreSQL is running on port 5432, then apply database migrations:
+npm run migrate
+# Seed default test user accounts (Admin & Cashier):
+npm run seed:test-user
+# Start backend API server (runs on http://localhost:5000):
 npm run dev
 ```
 
@@ -63,5 +66,12 @@ npm run dev
 ```bash
 cd frontend
 npm install
+# Start Vite React development server (runs on http://localhost:3000):
 npm run dev
 ```
+
+---
+
+## 🔑 Default Accounts (from Seed)
+- **Store Administrator**: `admin@fertilizershop.local` / `Password@123`
+- **Cashier / Staff**: `cashier@fertilizershop.local` / `Password@123`

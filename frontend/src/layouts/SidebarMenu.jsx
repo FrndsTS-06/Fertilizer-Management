@@ -104,6 +104,40 @@ export const ReportsIcon = ({ size = 20, color = 'currentColor' }) => (
   </svg>
 );
 
+export const PolicyIcon = ({ size = 20, color = 'currentColor' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+  </svg>
+);
+
+export const TermsIcon = ({ size = 20, color = 'currentColor' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="16" y1="13" x2="8" y2="13"></line>
+    <line x1="16" y1="17" x2="8" y2="17"></line>
+    <polyline points="10 9 9 9 8 9"></polyline>
+  </svg>
+);
+
 // Map section ID to crisp SVG symbol
 export const getMenuSymbol = (id, size = 18, color = 'currentColor') => {
   switch (id) {
@@ -117,6 +151,10 @@ export const getMenuSymbol = (id, size = 18, color = 'currentColor') => {
       return <CustomersIcon size={size} color={color} />;
     case 'reports':
       return <ReportsIcon size={size} color={color} />;
+    case 'privacy-policy':
+      return <PolicyIcon size={size} color={color} />;
+    case 'terms-and-conditions':
+      return <TermsIcon size={size} color={color} />;
     default:
       return <MenuIcon size={size} color={color} />;
   }
@@ -157,6 +195,20 @@ export const MENU_DATA = [
     title: 'Reports',
     subtitle: 'Business Performance and Accounts',
     icon: '📈',
+  },
+  {
+    id: 'privacy-policy',
+    number: '06',
+    title: 'Privacy Policy',
+    subtitle: 'Data & Farmer Privacy',
+    icon: '🛡️',
+  },
+  {
+    id: 'terms-and-conditions',
+    number: '07',
+    title: 'Terms & Conditions',
+    subtitle: 'Compliance & Policies',
+    icon: '📜',
   },
 ];
 

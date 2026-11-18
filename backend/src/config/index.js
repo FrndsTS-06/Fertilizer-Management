@@ -1,9 +1,26 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Ensure environment variables are loaded
+// Ensure environment variables are loaded from backend/.env, root .env, and cwd
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
+
+let dbFromUrl = {};
+if (process.env.DATABASE_URL) {
+  try {
+    const parsed = new URL(process.env.DATABASE_URL);
+    dbFromUrl = {
+      host: parsed.hostname,
+      port: parseInt(parsed.port, 10) || 5432,
+      database: parsed.pathname.replace(/^\//, '').split('?')[0],
+      user: decodeURIComponent(parsed.username || ''),
+      password: decodeURIComponent(parsed.password || ''),
+    };
+  } catch (e) {
+    // Malformed URL; fallback to individual variables
+  }
+}
 
 /**
  * Centralized Application Configuration
@@ -20,19 +37,17 @@ const config = {
   },
 
   cors: {
-    allowedOrigins: (process.env.FRONTEND_ORIGIN || 'http://localhost:3000')
+    allowedOrigins: (process.env.FRONTEND_ORIGIN || process.env.CLIENT_URL || 'http://localhost:3000')
       .split(',')
       .map(origin => origin.trim()),
   },
 
   db: {
-    connectionString: process.env.DATABASE_URL,
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT, 10) || 5432,
-    database: process.env.DB_NAME || 'fertilizer_management',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD,
-    ssl: process.env.DB_SSL === 'true' || Boolean(process.env.DATABASE_URL),
+    host: dbFromUrl.host || process.env.DB_HOST || 'localhost',
+    port: dbFromUrl.port || parseInt(process.env.DB_PORT, 10) || 5432,
+    database: dbFromUrl.database || process.env.DB_NAME || 'fertilizer_management',
+    user: dbFromUrl.user || process.env.DB_USER || 'postgres',
+    password: dbFromUrl.password !== undefined ? dbFromUrl.password : (process.env.DB_PASSWORD || ''),
     max: parseInt(process.env.DB_POOL_MAX, 10) || 20,
     min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
     idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS, 10) || 30000,
