@@ -96,13 +96,6 @@ export default function Login({ onNavigate }) {
     }
   };
 
-  const handleQuickFill = (demoEmail, demoPassword) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setErrorMessage('');
-    setFieldErrors({ email: '', password: '' });
-    setTouched({ email: false, password: false });
-  };
 
   return (
     <div style={{
@@ -374,64 +367,7 @@ export default function Login({ onNavigate }) {
             </button>
           </form>
 
-          {/* Quick Demo Credentials */}
-          <div style={{
-            marginTop: '1.5rem',
-            paddingTop: '1.25rem',
-            borderTop: '1px solid #E2E8F0',
-          }}>
-            <p style={{
-              fontSize: '0.725rem',
-              fontWeight: '700',
-              color: '#64748B',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              margin: '0 0 0.65rem',
-              textAlign: 'center',
-            }}>
-              Quick-Fill Test Accounts
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('admin@fertilizershop.local', 'Password@123')}
-                disabled={isSubmitting}
-                style={{
-                  padding: '0.55rem',
-                  fontSize: '0.75rem',
-                  fontWeight: '600',
-                  color: '#0B1F3A',
-                  backgroundColor: '#EFF6FF',
-                  border: '1px solid #BFDBFE',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  transition: 'background 0.15s ease',
-                }}
-              >
-                🛡️ Store Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('cashier@fertilizershop.local', 'Password@123')}
-                disabled={isSubmitting}
-                style={{
-                  padding: '0.55rem',
-                  fontSize: '0.75rem',
-                  fontWeight: '600',
-                  color: '#065F46',
-                  backgroundColor: '#ECFDF5',
-                  border: '1px solid #A7F3D0',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  transition: 'background 0.15s ease',
-                }}
-              >
-                🧾 Cashier / Staff
-              </button>
-            </div>
-          </div>
+
         </div>
 
         {/* Card Footer */}
