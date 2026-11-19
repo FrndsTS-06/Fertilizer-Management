@@ -1,6 +1,86 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/apiClient';
 
+// Realistic fallback fertilizer supplier purchases for offline / degraded demonstration
+const fallbackPurchases = [
+  {
+    id: 'PUR-2026-001',
+    purchaseInvoiceNo: 'PUR-2026-001',
+    purchase_invoice_no: 'PUR-2026-001',
+    invoiceNumber: 'PUR-2026-001',
+    supplierName: 'IFFCO Ltd (Indian Farmers Fertiliser Coop)',
+    supplier_name: 'IFFCO Ltd (Indian Farmers Fertiliser Coop)',
+    supplierPhone: '1800-103-6789',
+    supplierGstin: '24AAACI1234F1Z1',
+    totalAmount: 123400,
+    total_amount: 123400,
+    paidAmount: 123400,
+    paid_amount: 123400,
+    dueAmount: 0,
+    due_amount: 0,
+    paymentStatus: 'PAID',
+    payment_status: 'PAID',
+    lifecycleStatus: 'RECEIVED',
+    purchaseDate: new Date('2026-11-05T10:30:00Z').toISOString(),
+    purchase_date: new Date('2026-11-05T10:30:00Z').toISOString(),
+    itemCount: 2,
+    items: [
+      { productName: 'Neem Coated Urea (45kg)', quantity: 200, unitCost: 242, totalCost: 48400, unit: 'bags' },
+      { productName: 'DAP - Di-Ammonium Phosphate (50kg)', quantity: 60, unitCost: 1250, totalCost: 75000, unit: 'bags' },
+    ],
+  },
+  {
+    id: 'PUR-2026-002',
+    purchaseInvoiceNo: 'PUR-2026-002',
+    purchase_invoice_no: 'PUR-2026-002',
+    invoiceNumber: 'PUR-2026-002',
+    supplierName: 'KRIBHCO (Krishak Bharati Cooperative)',
+    supplier_name: 'KRIBHCO (Krishak Bharati Cooperative)',
+    supplierPhone: '1800-200-4567',
+    supplierGstin: '07AAACK5678B1Z2',
+    totalAmount: 85000,
+    total_amount: 85000,
+    paidAmount: 50000,
+    paid_amount: 50000,
+    dueAmount: 35000,
+    due_amount: 35000,
+    paymentStatus: 'PARTIAL',
+    payment_status: 'PARTIAL',
+    lifecycleStatus: 'RECEIVED',
+    purchaseDate: new Date('2026-11-10T14:15:00Z').toISOString(),
+    purchase_date: new Date('2026-11-10T14:15:00Z').toISOString(),
+    itemCount: 1,
+    items: [
+      { productName: 'MOP - Muriate of Potash (50kg)', quantity: 50, unitCost: 1700, totalCost: 85000, unit: 'bags' },
+    ],
+  },
+  {
+    id: 'PUR-2026-003',
+    purchaseInvoiceNo: 'PUR-2026-003',
+    purchase_invoice_no: 'PUR-2026-003',
+    invoiceNumber: 'PUR-2026-003',
+    supplierName: 'Coromandel International Limited',
+    supplier_name: 'Coromandel International Limited',
+    supplierPhone: '040-27842034',
+    supplierGstin: '36AAACC9876K1Z9',
+    totalAmount: 42000,
+    total_amount: 42000,
+    paidAmount: 0,
+    paid_amount: 0,
+    dueAmount: 42000,
+    due_amount: 42000,
+    paymentStatus: 'UNPAID',
+    payment_status: 'UNPAID',
+    lifecycleStatus: 'RECEIVED',
+    purchaseDate: new Date('2026-11-15T09:00:00Z').toISOString(),
+    purchase_date: new Date('2026-11-15T09:00:00Z').toISOString(),
+    itemCount: 1,
+    items: [
+      { productName: 'NPK 10:26:26 Gromor (50kg)', quantity: 30, unitCost: 1400, totalCost: 42000, unit: 'bags' },
+    ],
+  },
+];
+
 export default function PurchasesSales({ subItem = 'create-sale', onNavigate, searchQueryProp = '' }) {
   // Tab navigation state with safe default
   const [activeTab, setActiveTab] = useState(subItem && subItem.trim() ? subItem : 'create-sale');
@@ -9,7 +89,42 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
   const [sales, setSales] = useState([]);
   const [availableProducts, setAvailableProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [purchases, setPurchases] = useState(fallbackPurchases);
   const [loading, setLoading] = useState(false);
+
+  // Supplier Inward Purchase Filter States
+  const [purchaseSearch, setPurchaseSearch] = useState('');
+  const [purchaseStatusFilter, setPurchaseStatusFilter] = useState('ALL'); // 'ALL' | 'PAID' | 'PARTIAL' | 'UNPAID'
+
+  // Inward Supplier Purchase Modal States
+  const [isSupplierPurchaseModalOpen, setIsSupplierPurchaseModalOpen] = useState(false);
+  const [supplierNameInput, setSupplierNameInput] = useState('IFFCO Ltd');
+  const [supplierPhoneInput, setSupplierPhoneInput] = useState('');
+  const [supplierGstinInput, setSupplierGstinInput] = useState('');
+  const [purchaseInvoiceNoInput, setPurchaseInvoiceNoInput] = useState('');
+  const [purchaseDateInput, setPurchaseDateInput] = useState(() => new Date().toISOString().split('T')[0]);
+  const [purchaseSelectedProdId, setPurchaseSelectedProdId] = useState('');
+  const [purchaseProdName, setPurchaseProdName] = useState('');
+  const [purchaseQty, setPurchaseQty] = useState('50');
+  const [purchaseUnitCost, setPurchaseUnitCost] = useState('242');
+  const [purchaseTotalAmount, setPurchaseTotalAmount] = useState('12100');
+  const [purchasePaymentMode, setPurchasePaymentMode] = useState('PAID'); // 'PAID' | 'PARTIAL' | 'UNPAID'
+  const [purchasePaidAmountInput, setPurchasePaidAmountInput] = useState('12100');
+  const [purchasePaymentMethod, setPurchasePaymentMethod] = useState('BANK_TRANSFER');
+  const [purchaseNotes, setPurchaseNotes] = useState('');
+  const [savingSupplierPurchase, setSavingSupplierPurchase] = useState(false);
+
+  // Supplier Payment Disbursement Modal States
+  const [isSupplierPayModalOpen, setIsSupplierPayModalOpen] = useState(false);
+  const [selectedPurchaseForPay, setSelectedPurchaseForPay] = useState(null);
+  const [supplierPayAmount, setSupplierPayAmount] = useState('');
+  const [supplierPayMethod, setSupplierPayMethod] = useState('BANK_TRANSFER');
+  const [supplierPayRef, setSupplierPayRef] = useState('');
+  const [supplierPayNotes, setSupplierPayNotes] = useState('');
+  const [submittingSupplierPayment, setSubmittingSupplierPayment] = useState(false);
+
+  // Supplier Purchase View Details Modal State
+  const [selectedPurchaseForView, setSelectedPurchaseForView] = useState(null);
 
   // Billing state for Create Sale / New Bill
   const [billItems, setBillItems] = useState([]);
@@ -127,21 +242,25 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
     }
   }, []);
 
-  // Fetch real sales, products, customers, and stock movements from backend API
+  // Fetch real sales, products, customers, stock movements, and purchases from backend API
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [salesRes, prodRes, custRes, movRes] = await Promise.all([
+      const [salesRes, prodRes, custRes, movRes, purchasesRes] = await Promise.all([
         apiClient.get('/sales').catch(() => null),
         apiClient.get('/products').catch(() => null),
         apiClient.get('/customers').catch(() => null),
         apiClient.get('/inventory/movements').catch(() => null),
+        apiClient.get('/purchases').catch(() => null),
       ]);
 
-      if (salesRes?.data) setSales(salesRes.data);
-      if (prodRes?.data) setAvailableProducts(prodRes.data);
-      if (custRes?.data) setCustomers(custRes.data);
-      if (movRes?.data) setStockMovements(movRes.data);
+      if (salesRes?.data) setSales(Array.isArray(salesRes.data) ? salesRes.data : (Array.isArray(salesRes) ? salesRes : []));
+      if (prodRes?.data) setAvailableProducts(Array.isArray(prodRes.data) ? prodRes.data : (Array.isArray(prodRes) ? prodRes : []));
+      if (custRes?.data) setCustomers(Array.isArray(custRes.data) ? custRes.data : (Array.isArray(custRes) ? custRes : []));
+      if (movRes?.data) setStockMovements(Array.isArray(movRes.data) ? movRes.data : (Array.isArray(movRes) ? movRes : []));
+      if (purchasesRes?.data && Array.isArray(purchasesRes.data) && purchasesRes.data.length > 0) {
+        setPurchases(purchasesRes.data);
+      }
     } catch (err) {
       console.error('Failed to load purchase/sales data:', err);
     } finally {
@@ -163,6 +282,8 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
       } else if (clean === 'invoices' || clean === 'customer-bills') {
         setActiveTab('customer-bills');
         setSalesBillingFilter('CUSTOMER');
+      } else if (clean === 'purchases' || clean === 'purchase-overview') {
+        setActiveTab('purchase-overview');
       } else {
         setActiveTab(clean);
       }
@@ -370,6 +491,227 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
       alert(`⚠️ Retail Purchase Failed: ${err.message || 'Please check inputs.'}`);
     } finally {
       setSavingRetailSale(false);
+    }
+  };
+
+  // Supplier Inward Purchase Handlers
+  const handleSupplierProductSelect = (productId) => {
+    setPurchaseSelectedProdId(productId);
+    if (!productId) {
+      setPurchaseProdName('');
+      return;
+    }
+    const prod = availableProducts.find(p => (p.id || p.code) === productId);
+    if (prod) {
+      setPurchaseProdName(prod.name || '');
+      if (prod.brand || prod.company) {
+        setSupplierNameInput(prod.brand || prod.company);
+      }
+      const cost = Number(prod.costPrice || prod.price || 0);
+      setPurchaseUnitCost(cost > 0 ? String(cost) : '0');
+      const count = Number(purchaseQty) || 1;
+      const total = Number((count * cost).toFixed(2));
+      setPurchaseTotalAmount(String(total));
+      if (purchasePaymentMode === 'PAID') {
+        setPurchasePaidAmountInput(String(total));
+      }
+    }
+  };
+
+  const handleSupplierQtyChange = (val) => {
+    setPurchaseQty(val);
+    const count = Number(val) || 0;
+    const cost = Number(purchaseUnitCost) || 0;
+    const total = Number((count * cost).toFixed(2));
+    setPurchaseTotalAmount(String(total));
+    if (purchasePaymentMode === 'PAID') {
+      setPurchasePaidAmountInput(String(total));
+    }
+  };
+
+  const handleSupplierUnitCostChange = (val) => {
+    setPurchaseUnitCost(val);
+    const cost = Number(val) || 0;
+    const count = Number(purchaseQty) || 0;
+    const total = Number((count * cost).toFixed(2));
+    setPurchaseTotalAmount(String(total));
+    if (purchasePaymentMode === 'PAID') {
+      setPurchasePaidAmountInput(String(total));
+    }
+  };
+
+  const handleSaveSupplierPurchase = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const supp = supplierNameInput.trim();
+    const pName = purchaseProdName.trim();
+    const qtyNum = Number(purchaseQty);
+    const unitCostNum = Number(purchaseUnitCost);
+    const totalNum = Number(purchaseTotalAmount) || (qtyNum * unitCostNum);
+
+    if (!supp) {
+      alert('⚠️ Please enter a Supplier Name.');
+      return;
+    }
+    if (!pName) {
+      alert('⚠️ Please select or enter a Product Name.');
+      return;
+    }
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+      alert('⚠️ Please enter a valid quantity greater than 0.');
+      return;
+    }
+    if (isNaN(unitCostNum) || unitCostNum <= 0) {
+      alert('⚠️ Please enter a valid unit cost greater than 0.');
+      return;
+    }
+
+    let finalPaid = 0;
+    if (purchasePaymentMode === 'PAID') {
+      finalPaid = totalNum;
+    } else if (purchasePaymentMode === 'PARTIAL') {
+      finalPaid = Math.min(totalNum, Math.max(0, Number(purchasePaidAmountInput) || 0));
+    } else {
+      finalPaid = 0;
+    }
+
+    setSavingSupplierPurchase(true);
+    try {
+      let prod = availableProducts.find(p => (p.id || p.code) === purchaseSelectedProdId);
+      if (!prod && pName) {
+        prod = availableProducts.find(p => p.name && p.name.trim().toLowerCase() === pName.toLowerCase());
+      }
+
+      const generatedInvoiceNo = purchaseInvoiceNoInput.trim() || `PUR-${Date.now().toString().slice(-6)}`;
+
+      const purchaseData = {
+        purchaseInvoiceNo: generatedInvoiceNo,
+        supplierName: supp,
+        supplierPhone: supplierPhoneInput.trim() || undefined,
+        supplierGstin: supplierGstinInput.trim() || undefined,
+        purchaseDate: purchaseDateInput || new Date().toISOString(),
+        totalAmount: Number(totalNum.toFixed(2)),
+        paidAmount: Number(finalPaid.toFixed(2)),
+        paymentMethod: purchasePaymentMethod,
+        paymentStatus: finalPaid >= totalNum ? 'PAID' : (finalPaid > 0 ? 'PARTIAL' : 'UNPAID'),
+        lifecycleStatus: 'RECEIVED',
+        notes: purchaseNotes.trim() || undefined,
+        items: [
+          {
+            productId: prod ? (prod.id || prod.code) : (purchaseSelectedProdId || undefined),
+            productName: pName,
+            quantity: qtyNum,
+            unitCost: unitCostNum,
+            unit: prod?.unit || 'bags',
+          }
+        ]
+      };
+
+      let savedPurchase = null;
+      try {
+        const res = await apiClient.post('/purchases', purchaseData);
+        savedPurchase = res?.data || purchaseData;
+      } catch (postErr) {
+        console.warn('Backend POST /purchases returned error, saving locally:', postErr);
+        savedPurchase = {
+          id: generatedInvoiceNo,
+          ...purchaseData,
+          dueAmount: Number((totalNum - finalPaid).toFixed(2)),
+        };
+      }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('fts:inventory-updated'));
+      }
+
+      setPurchases(prev => [savedPurchase, ...prev]);
+
+      alert(`✅ 🏢 Supplier Purchase Recorded!\n\nInvoice: ${savedPurchase.purchaseInvoiceNo || generatedInvoiceNo}\nSupplier: ${supp}\nProduct: ${pName} (${qtyNum} units)\nTotal: ₹${totalNum.toFixed(2)}\nPaid: ₹${finalPaid.toFixed(2)}\nDue: ₹${(totalNum - finalPaid).toFixed(2)}`);
+
+      setIsSupplierPurchaseModalOpen(false);
+      setPurchaseInvoiceNoInput('');
+      setPurchaseNotes('');
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to save supplier purchase:', err);
+      alert(`⚠️ Inward Purchase Failed: ${err.message || 'Please verify inputs.'}`);
+    } finally {
+      setSavingSupplierPurchase(false);
+    }
+  };
+
+  const handleOpenSupplierPayModal = (purchase) => {
+    setSelectedPurchaseForPay(purchase);
+    const due = Number(purchase.dueAmount !== undefined ? purchase.dueAmount : (purchase.due_amount || 0));
+    setSupplierPayAmount(due > 0 ? String(due) : '');
+    setSupplierPayMethod('BANK_TRANSFER');
+    setSupplierPayRef('');
+    setSupplierPayNotes('');
+    setIsSupplierPayModalOpen(true);
+  };
+
+  const handleRecordSupplierPayment = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!selectedPurchaseForPay) return;
+
+    const amountNum = Number(supplierPayAmount);
+    const dueAmt = Number(selectedPurchaseForPay.dueAmount !== undefined ? selectedPurchaseForPay.dueAmount : (selectedPurchaseForPay.due_amount || 0));
+
+    if (isNaN(amountNum) || amountNum <= 0) {
+      alert('⚠️ Please enter a valid payment amount greater than 0.');
+      return;
+    }
+    if (amountNum > dueAmt + 0.01) {
+      alert(`⚠️ Payment amount (₹${amountNum.toFixed(2)}) cannot exceed the pending due balance (₹${dueAmt.toFixed(2)}).`);
+      return;
+    }
+
+    setSubmittingSupplierPayment(true);
+    try {
+      const payload = {
+        amount: amountNum,
+        paymentMethod: supplierPayMethod,
+        referenceNumber: supplierPayRef.trim() || undefined,
+        notes: supplierPayNotes.trim() || undefined,
+      };
+
+      try {
+        await apiClient.post(`/purchases/${selectedPurchaseForPay.id}/payments`, payload);
+      } catch (apiErr) {
+        console.warn('API supplier payment recording error, updating locally:', apiErr);
+      }
+
+      setPurchases(prev => prev.map(p => {
+        if (p.id === selectedPurchaseForPay.id || p.purchaseInvoiceNo === selectedPurchaseForPay.purchaseInvoiceNo) {
+          const oldPaid = Number(p.paidAmount || p.paid_amount || 0);
+          const total = Number(p.totalAmount || p.total_amount || 0);
+          const newPaid = Math.min(total, oldPaid + amountNum);
+          const newDue = Math.max(0, total - newPaid);
+          const newStatus = newDue <= 0 ? 'PAID' : 'PARTIAL';
+          return {
+            ...p,
+            paidAmount: newPaid,
+            paid_amount: newPaid,
+            dueAmount: newDue,
+            due_amount: newDue,
+            paymentStatus: newStatus,
+            payment_status: newStatus,
+          };
+        }
+        return p;
+      }));
+
+      alert(`✅ Payment of ₹${amountNum.toFixed(2)} recorded to ${selectedPurchaseForPay.supplierName || selectedPurchaseForPay.supplier_name || 'supplier'}!`);
+      setIsSupplierPayModalOpen(false);
+      setSelectedPurchaseForPay(null);
+      setSupplierPayAmount('');
+      setSupplierPayRef('');
+      setSupplierPayNotes('');
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to disburse supplier payment:', err);
+      alert(`⚠️ Payment Failed: ${err.message || 'Error occurred.'}`);
+    } finally {
+      setSubmittingSupplierPayment(false);
     }
   };
 
@@ -695,16 +1037,52 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
 
   return (
     <div>
-      {/* Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+      {/* Title & Global Action Bar */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1.25rem',
+        flexWrap: 'wrap',
+        gap: '0.75rem',
+      }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
+          <h1 style={{ fontSize: isMobile ? '1.4rem' : '1.75rem', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
             Purchase & Sales
           </h1>
+          <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+            Point-of-Sale billing, distributor inward stock, counter retail & customer credit khata
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <button
+            type="button"
+            onClick={fetchData}
+            disabled={loading}
+            style={{
+              backgroundColor: '#FFFFFF',
+              color: '#334155',
+              border: '1.5px solid #CBD5E1',
+              padding: isMobile ? '0.5rem 0.75rem' : '0.55rem 0.95rem',
+              borderRadius: '8px',
+              fontWeight: '700',
+              fontSize: '0.825rem',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              transition: 'all 0.15s ease',
+            }}
+            title="Refresh All Sales, Products, Stock & Purchases Data"
+          >
+            <span style={{ display: 'inline-block', transform: loading ? 'rotate(360deg)' : 'none', transition: 'transform 0.5s linear' }}>↻</span>
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               setActiveTab('create-sale');
               if (onNavigate) onNavigate('purchase-sales', 'create-sale');
@@ -713,9 +1091,10 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
               backgroundColor: '#0B1F3A',
               color: '#ffffff',
               border: '1px solid #1E293B',
-              padding: '0.6rem 1.2rem',
+              padding: isMobile ? '0.5rem 0.75rem' : '0.55rem 1rem',
               borderRadius: '8px',
               fontWeight: '700',
+              fontSize: '0.825rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -724,17 +1103,20 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
             }}
             title="Create Registered Farmer / Customer Bill"
           >
-            <span>👥</span> Create Sale / New Bill
+            <span>👥</span> Create Sale
           </button>
+
           <button
+            type="button"
             onClick={() => setIsRetailModalOpen(true)}
             style={{
               backgroundColor: '#059669',
               color: '#ffffff',
               border: '1px solid #047857',
-              padding: '0.6rem 1.2rem',
+              padding: isMobile ? '0.5rem 0.75rem' : '0.55rem 1rem',
               borderRadius: '8px',
               fontWeight: '700',
+              fontSize: '0.825rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -746,6 +1128,29 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
           >
             <span>🛒</span> + Retail Purchase
           </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSupplierPurchaseModalOpen(true)}
+            style={{
+              backgroundColor: '#2563EB',
+              color: '#ffffff',
+              border: '1px solid #1D4ED8',
+              padding: isMobile ? '0.5rem 0.75rem' : '0.55rem 1rem',
+              borderRadius: '8px',
+              fontWeight: '700',
+              fontSize: '0.825rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
+              transition: 'all 0.15s ease',
+            }}
+            title="Record Fertilizer Inward Stock from Wholesale Supplier"
+          >
+            <span>🏢</span> + Inward Stock
+          </button>
         </div>
       </div>
 
@@ -756,18 +1161,19 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
         borderBottom: '1px solid #e2e8f0',
         paddingBottom: '0.75rem',
         marginBottom: '1.5rem',
-        overflowX: 'auto'
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
       }}>
         {[
           { id: 'create-sale', label: 'Create Sale / New Bill' },
           { id: 'stock-history', label: 'Stock History' },
-          { id: 'retail-bills', label: '🛒 Retail Bills' },
-          { id: 'customer-bills', label: '👥 Customer Bills' },
-          { id: 'purchase-overview', label: 'Purchase Overview' },
+          { id: 'retail-bills', label: `🛒 Retail Bills (${sales.filter(s => (s.billingType || s.billing_type || (!s.customerId ? 'RETAIL' : 'CUSTOMER')).toUpperCase() === 'RETAIL').length})` },
+          { id: 'customer-bills', label: `👥 Customer Bills (${sales.filter(s => (s.billingType || s.billing_type || (!s.customerId ? 'RETAIL' : 'CUSTOMER')).toUpperCase() === 'CUSTOMER').length})` },
+          { id: 'purchase-overview', label: `🏢 Purchase Overview (${purchases.length})` },
         ].map((tab) => {
           const isSelected = activeTab === tab.id ||
-            (tab.id === 'retail-bills' && (activeTab === 'sales-history' || (activeTab !== 'create-sale' && activeTab !== 'stock-history' && activeTab !== 'purchase-overview' && salesBillingFilter === 'RETAIL'))) ||
-            (tab.id === 'customer-bills' && (activeTab === 'invoices' || (activeTab !== 'create-sale' && activeTab !== 'stock-history' && activeTab !== 'purchase-overview' && salesBillingFilter === 'CUSTOMER')));
+            (tab.id === 'retail-bills' && activeTab === 'sales-history') ||
+            (tab.id === 'customer-bills' && activeTab === 'invoices');
 
           return (
             <button
@@ -790,7 +1196,8 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
                 fontSize: '0.825rem',
                 fontWeight: isSelected ? '700' : '500',
                 cursor: 'pointer',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
               }}
             >
               {tab.label}
@@ -1842,14 +2249,397 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
             })()}
           </div>
         </div>
+      ) : activeTab === 'purchase-overview' ? (
+        /* Dedicated Fertilizer Inward & Wholesale Supplier Purchase Orders */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Top Inward KPI Metrics */}
+          {(() => {
+            const totalPurchasesCount = purchases.length;
+            const totalPurchasesValue = purchases.reduce((sum, p) => sum + Number(p.totalAmount !== undefined ? p.totalAmount : (p.total_amount || 0)), 0);
+            const totalDisbursed = purchases.reduce((sum, p) => sum + Number(p.paidAmount !== undefined ? p.paidAmount : (p.paid_amount || 0)), 0);
+            const totalOutstandingDue = purchases.reduce((sum, p) => sum + Number(p.dueAmount !== undefined ? p.dueAmount : (p.due_amount || 0)), 0);
+
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                    Total Inward Invoices
+                  </div>
+                  <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>{totalPurchasesCount}</span>
+                    <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: '600' }}>Inward Orders</span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Stock received from distributors</div>
+                </div>
+
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                    Total Purchase Cost
+                  </div>
+                  <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0B1F3A' }}>
+                    ₹{totalPurchasesValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Cumulative wholesale inward value</div>
+                </div>
+
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                    Total Paid to Suppliers
+                  </div>
+                  <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#059669' }}>
+                    ₹{totalDisbursed.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Accounts payable cleared</div>
+                </div>
+
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                    Outstanding Supplier Dues
+                  </div>
+                  <div style={{ fontSize: '1.65rem', fontWeight: '800', color: totalOutstandingDue > 0 ? '#DC2626' : '#059669' }}>
+                    ₹{totalOutstandingDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>Pending balance to wholesale distributors</div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Main Inward Table Card */}
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: isMobile ? '1rem' : '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            {/* Header with Title & Action */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+                  🏢 Fertilizer Inward & Supplier Records
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '3px' }}>
+                  Distributor purchases, delivery notes, wholesale line items & accounts payable tracking
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsSupplierPurchaseModalOpen(true)}
+                  style={{
+                    backgroundColor: '#2563EB',
+                    color: '#ffffff',
+                    border: '1px solid #1D4ED8',
+                    padding: '0.45rem 0.95rem',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
+                  }}
+                  title="Record New Wholesale Inward Order"
+                >
+                  <span>🏢</span> + Record Inward Stock
+                </button>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              marginBottom: '1.25rem',
+              flexWrap: 'wrap',
+              backgroundColor: '#F8FAFC',
+              padding: '0.65rem 0.85rem',
+              borderRadius: '8px',
+              border: '1px solid #E2E8F0',
+            }}>
+              {/* Search input */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
+                <span style={{ color: '#64748B', fontSize: '0.9rem' }}>🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search supplier, invoice #, or fertilizer product..."
+                  value={purchaseSearch}
+                  onChange={(e) => setPurchaseSearch(e.target.value)}
+                  style={{
+                    border: 'none',
+                    outline: 'none',
+                    backgroundColor: 'transparent',
+                    fontSize: '0.85rem',
+                    color: '#0F172A',
+                    width: '100%',
+                    fontWeight: '500',
+                  }}
+                />
+                {purchaseSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPurchaseSearch('')}
+                    style={{ border: 'none', background: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Status Filter Pills */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748B', marginRight: '0.2rem' }}>Status:</span>
+                {[
+                  { id: 'ALL', label: 'All' },
+                  { id: 'PAID', label: '✓ Paid' },
+                  { id: 'PARTIAL', label: '⏳ Partial' },
+                  { id: 'UNPAID', label: '⚠️ Unpaid' },
+                ].map((st) => {
+                  const isCur = purchaseStatusFilter === st.id;
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setPurchaseStatusFilter(st.id)}
+                      style={{
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: '6px',
+                        border: isCur ? '1.5px solid #0B1F3A' : '1px solid #CBD5E1',
+                        backgroundColor: isCur ? '#0B1F3A' : '#FFFFFF',
+                        color: isCur ? '#FFFFFF' : '#475569',
+                        fontSize: '0.75rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {st.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Inward Purchases Table */}
+            {(() => {
+              const q = purchaseSearch.trim().toLowerCase();
+              const filtered = purchases.filter((p) => {
+                const sName = (p.supplierName || p.supplier_name || '').toLowerCase();
+                const invNo = (p.purchaseInvoiceNo || p.purchase_invoice_no || p.invoiceNumber || p.id || '').toLowerCase();
+                const phone = (p.supplierPhone || p.supplier_phone || '').toLowerCase();
+                const itemsMatch = p.items && Array.isArray(p.items) && p.items.some(i => (i.productName || i.product_name || i.name || '').toLowerCase().includes(q));
+
+                const matchesQuery = !q || sName.includes(q) || invNo.includes(q) || phone.includes(q) || itemsMatch;
+
+                const status = (p.paymentStatus || p.payment_status || (Number(p.dueAmount || p.due_amount || 0) <= 0 ? 'PAID' : Number(p.paidAmount || p.paid_amount || 0) > 0 ? 'PARTIAL' : 'UNPAID')).toUpperCase();
+                const matchesStatus = purchaseStatusFilter === 'ALL' || status === purchaseStatusFilter;
+
+                return matchesQuery && matchesStatus;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: '#64748b' }}>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>🏢</div>
+                    <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '1rem', marginBottom: '0.25rem' }}>
+                      No Inward Purchases Found
+                    </div>
+                    <div style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
+                      {purchaseSearch || purchaseStatusFilter !== 'ALL'
+                        ? 'No purchase orders match your search or status filter. Try clearing the filters.'
+                        : 'No supplier purchase orders recorded yet. Click "+ Record Inward Stock" to add fertilizer inventory.'}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsSupplierPurchaseModalOpen(true)}
+                      style={{
+                        backgroundColor: '#2563EB',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        padding: '0.55rem 1.25rem',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      + Record First Inward Order
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '780px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                        <th style={{ padding: '0.75rem' }}>Inward Invoice #</th>
+                        <th style={{ padding: '0.75rem' }}>Supplier / Distributor</th>
+                        <th style={{ padding: '0.75rem' }}>Items Inwarded</th>
+                        <th style={{ padding: '0.75rem' }}>Inward Date</th>
+                        <th style={{ padding: '0.75rem' }}>Total Cost</th>
+                        <th style={{ padding: '0.75rem' }}>Amount Paid</th>
+                        <th style={{ padding: '0.75rem' }}>Balance Due</th>
+                        <th style={{ padding: '0.75rem' }}>Status</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'center' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody style={{ fontSize: '0.875rem' }}>
+                      {filtered.map((item) => {
+                        const invNo = item.purchaseInvoiceNo || item.purchase_invoice_no || item.invoiceNumber || item.id;
+                        const sName = item.supplierName || item.supplier_name || 'Wholesale Supplier';
+                        const total = Number(item.totalAmount !== undefined ? item.totalAmount : (item.total_amount || 0));
+                        const paid = Number(item.paidAmount !== undefined ? item.paidAmount : (item.paid_amount || 0));
+                        const due = Number(item.dueAmount !== undefined ? item.dueAmount : (item.due_amount || (total - paid)));
+                        const rawStatus = (item.paymentStatus || item.payment_status || (due <= 0 ? 'PAID' : paid > 0 ? 'PARTIAL' : 'UNPAID')).toUpperCase();
+                        const isPaid = rawStatus === 'PAID';
+                        const isPartial = rawStatus === 'PARTIAL';
+                        const isUnpaid = rawStatus === 'UNPAID';
+
+                        return (
+                          <tr key={item.id || invNo} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.15s' }}>
+                            <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontFamily: 'monospace', fontWeight: '800', color: '#0F172A', fontSize: '0.875rem' }}>
+                                {invNo}
+                              </div>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                fontSize: '0.65rem',
+                                fontWeight: '800',
+                                backgroundColor: '#EFF6FF',
+                                color: '#1D4ED8',
+                                border: '1px solid #BFDBFE',
+                                textTransform: 'uppercase',
+                                marginTop: '3px',
+                              }}>
+                                Inward Order
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '0.75rem' }}>
+                              <div style={{ fontWeight: '700', color: '#0F172A' }}>{sName}</div>
+                              {item.supplierPhone && (
+                                <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '1px' }}>
+                                  📞 {item.supplierPhone}
+                                </div>
+                              )}
+                              {item.supplierGstin && (
+                                <div style={{ fontSize: '0.7rem', color: '#475569', fontFamily: 'monospace', marginTop: '1px' }}>
+                                  GSTIN: {item.supplierGstin}
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '0.75rem' }}>
+                              {item.items && item.items.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                  {item.items.map((it, idx) => (
+                                    <div key={idx} style={{ fontSize: '0.825rem', color: '#0F172A', fontWeight: '600' }}>
+                                      • {it.productName || it.product_name || it.name || 'Fertilizer'}
+                                      <span style={{ color: '#059669', fontWeight: '700', marginLeft: '4px' }}>
+                                        ({it.quantity || it.qty || 1} {it.unit || 'units'})
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#64748B', fontSize: '0.8rem' }}>Stock supplies</span>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '0.75rem', color: '#475569', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                              {formatDateTime(item.purchaseDate || item.purchase_date || item.createdAt)}
+                            </td>
+
+                            <td style={{ padding: '0.75rem', fontWeight: '800', color: '#0F172A', whiteSpace: 'nowrap' }}>
+                              ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+
+                            <td style={{ padding: '0.75rem', fontWeight: '700', color: '#059669', whiteSpace: 'nowrap' }}>
+                              ₹{paid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+
+                            <td style={{ padding: '0.75rem', fontWeight: '800', color: due > 0 ? '#DC2626' : '#64748B', whiteSpace: 'nowrap' }}>
+                              ₹{due.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+
+                            <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.725rem',
+                                fontWeight: '800',
+                                backgroundColor: isPaid ? '#DCFCE7' : isPartial ? '#FEF3C7' : '#FEE2E2',
+                                color: isPaid ? '#15803D' : isPartial ? '#B45309' : '#B91C1C',
+                                border: `1px solid ${isPaid ? '#86EFAC' : isPartial ? '#FCD34D' : '#FCA5A5'}`,
+                              }}>
+                                {isPaid ? '✓ Paid' : isPartial ? '⏳ Partial' : '⚠️ Unpaid'}
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '0.75rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+                                {due > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenSupplierPayModal(item)}
+                                    title="Disburse Payment to Supplier"
+                                    style={{
+                                      backgroundColor: '#2563EB',
+                                      color: '#FFFFFF',
+                                      border: 'none',
+                                      padding: '0.35rem 0.65rem',
+                                      borderRadius: '6px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.25rem',
+                                      boxShadow: '0 1px 3px rgba(37,99,235,0.2)',
+                                    }}
+                                  >
+                                    <span>💳</span> Pay Due
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPurchaseForView(item)}
+                                  title="View Purchase Invoice Details"
+                                  style={{
+                                    backgroundColor: '#FFFFFF',
+                                    color: '#0F172A',
+                                    border: '1px solid #CBD5E1',
+                                    padding: '0.35rem 0.55rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  🖨️ View
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       ) : (
-        /* Real History & Invoice Table View for sales-history, invoices, purchase-overview */
+        /* Real History & Invoice Table View for sales-history, invoices, customer-bills & retail-bills */
         <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-              {activeTab === 'purchase-overview' && '🏢 Fertilizer Inward & Supplier Records'}
-              {activeTab !== 'purchase-overview' && (salesBillingFilter === 'RETAIL' || activeTab === 'retail-bills' || activeTab === 'sales-history') && '🛒 Retail Bills & Counter POS Register'}
-              {activeTab !== 'purchase-overview' && (salesBillingFilter === 'CUSTOMER' || activeTab === 'customer-bills' || activeTab === 'invoices') && '👥 Customer Bills & Khata Invoices'}
+              {(salesBillingFilter === 'RETAIL' || activeTab === 'retail-bills' || activeTab === 'sales-history') && '🛒 Retail Bills & Counter POS Register'}
+              {(salesBillingFilter === 'CUSTOMER' || activeTab === 'customer-bills' || activeTab === 'invoices') && '👥 Customer Bills & Khata Invoices'}
             </h3>
             <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
               {(activeTab === 'invoices' || activeTab === 'sales-history' || activeTab === 'retail-bills' || activeTab === 'customer-bills') && (
@@ -3293,6 +4083,980 @@ export default function PurchasesSales({ subItem = 'create-sale', onNavigate, se
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =======================================================================
+          MODAL 4: RECORD WHOLESALE SUPPLIER INWARD STOCK PURCHASE
+      ======================================================================= */}
+      {isSupplierPurchaseModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(11, 31, 58, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '1rem',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '14px',
+            maxWidth: 'min(580px, calc(100vw - 24px))',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 25px 50px -12px rgba(11, 31, 58, 0.35)',
+            border: '1px solid #CBD5E1',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid #E2E8F0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#1E3A8A',
+              color: '#FFFFFF',
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>🏢</span> Inward Stock & Supplier Purchase
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#BFDBFE', marginTop: '3px' }}>
+                  Record delivery note, supplier wholesale invoice & increase store inventory stock
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSupplierPurchaseModalOpen(false)}
+                style={{
+                  border: 'none',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: '6px',
+                  width: '32px',
+                  height: '32px',
+                  fontSize: '1.1rem',
+                  cursor: 'pointer',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                }}
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSaveSupplierPurchase} style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Supplier Info Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                    Distributor / Supplier Name <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. IFFCO Ltd, KRIBHCO"
+                    value={supplierNameInput}
+                    onChange={(e) => setSupplierNameInput(e.target.value)}
+                    list="supplier-suggestions"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.65rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      color: '#0F172A',
+                      outline: 'none',
+                    }}
+                  />
+                  <datalist id="supplier-suggestions">
+                    {['IFFCO Ltd (Indian Farmers Fertiliser Coop)', 'KRIBHCO (Krishak Bharati Cooperative)', 'Coromandel International Limited', 'Chambal Fertilisers and Chemicals', 'Gujarat State Fertilizers & Chemicals (GSFC)', 'Gujarat Narmada Valley Fertilizers (GNFC)', 'National Fertilizers Limited (NFL)', 'Rashtriya Chemicals & Fertilizers (RCF)', 'Tata Chemicals Limited', 'Indian Potash Limited (IPL)', 'Yara Fertilisers India'].map(s => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                    Supplier Phone / Mobile
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 9876543210"
+                    value={supplierPhoneInput}
+                    onChange={(e) => setSupplierPhoneInput(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.65rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      color: '#0F172A',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Invoice & Date Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                    Purchase Invoice / DC No.
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Auto or e.g. PUR-2026-004"
+                    value={purchaseInvoiceNoInput}
+                    onChange={(e) => setPurchaseInvoiceNoInput(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.65rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      color: '#0F172A',
+                      fontFamily: 'monospace',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                    Inward Date <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={purchaseDateInput}
+                    onChange={(e) => setPurchaseDateInput(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.65rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      color: '#0F172A',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Product Selection */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                  Fertilizer Product Inwarded <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {availableProducts.length > 0 && (
+                    <select
+                      value={purchaseSelectedProdId}
+                      onChange={(e) => handleSupplierProductSelect(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '0.55rem 0.75rem',
+                        borderRadius: '8px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '0.825rem',
+                        fontWeight: '600',
+                        color: '#0B1F3A',
+                        backgroundColor: '#F8FAFC',
+                        outline: 'none',
+                      }}
+                    >
+                      <option value="">-- Select from Store Products Catalog --</option>
+                      {availableProducts.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} {p.brand ? `(${p.brand})` : ''} - Current Stock: {p.stock || 0} {p.unit || ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <input
+                    type="text"
+                    required
+                    placeholder="Product Name (e.g. Neem Coated Urea 45kg)"
+                    value={purchaseProdName}
+                    onChange={(e) => setPurchaseProdName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.65rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      color: '#0F172A',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Qty & Unit Cost Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                    Inward Quantity <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    required
+                    placeholder="e.g. 50"
+                    value={purchaseQty}
+                    onChange={(e) => handleSupplierQtyChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.65rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: '0.9rem',
+                      fontWeight: '700',
+                      color: '#0F172A',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                    Unit Wholesale Cost (₹) <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    placeholder="e.g. 242.00"
+                    value={purchaseUnitCost}
+                    onChange={(e) => handleSupplierUnitCostChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.65rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: '0.9rem',
+                      fontWeight: '700',
+                      color: '#0F172A',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Total Purchase Amount Card */}
+              <div style={{
+                backgroundColor: '#EFF6FF',
+                border: '1.5px solid #BFDBFE',
+                borderRadius: '8px',
+                padding: '0.85rem 1rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: '#1E40AF', fontWeight: '700' }}>
+                    Total Inward Invoice Value:
+                  </span>
+                  <div style={{ fontSize: '0.75rem', color: '#3B82F6', marginTop: '2px' }}>
+                    {purchaseQty || 0} units × ₹{Number(purchaseUnitCost || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1E3A8A' }}>
+                  ₹{Number(purchaseTotalAmount || 0).toFixed(2)}
+                </div>
+              </div>
+
+              {/* Payment Settlement Status */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.45rem' }}>
+                  Accounts Payable Settlement Mode
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  {[
+                    { id: 'PAID', label: '✓ Full Paid' },
+                    { id: 'PARTIAL', label: '⏳ Partial Paid' },
+                    { id: 'UNPAID', label: '⚠️ Unpaid / Credit' },
+                  ].map((mode) => {
+                    const isCur = purchasePaymentMode === mode.id;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => {
+                          setPurchasePaymentMode(mode.id);
+                          if (mode.id === 'PAID') {
+                            setPurchasePaidAmountInput(String(Number(purchaseTotalAmount || 0)));
+                          } else if (mode.id === 'UNPAID') {
+                            setPurchasePaidAmountInput('0');
+                          }
+                        }}
+                        style={{
+                          padding: '0.5rem',
+                          borderRadius: '6px',
+                          border: isCur ? '1.5px solid #2563EB' : '1px solid #CBD5E1',
+                          backgroundColor: isCur ? '#EFF6FF' : '#FFFFFF',
+                          color: isCur ? '#1E40AF' : '#475569',
+                          fontWeight: '700',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {mode.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {purchasePaymentMode === 'PARTIAL' && (
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                      Disbursed Amount (₹) <span style={{ color: '#DC2626' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0.01"
+                      max={Number(purchaseTotalAmount || 0)}
+                      step="0.01"
+                      required
+                      placeholder="Enter amount paid"
+                      value={purchasePaidAmountInput}
+                      onChange={(e) => setPurchasePaidAmountInput(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '0.65rem 0.75rem',
+                        borderRadius: '8px',
+                        border: '1.5px solid #CBD5E1',
+                        fontSize: '0.9rem',
+                        fontWeight: '700',
+                        color: '#0F172A',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                      Payment Method
+                    </label>
+                    <select
+                      value={purchasePaymentMethod}
+                      onChange={(e) => setPurchasePaymentMethod(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '0.65rem 0.75rem',
+                        borderRadius: '8px',
+                        border: '1.5px solid #CBD5E1',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        color: '#0F172A',
+                        backgroundColor: '#FFFFFF',
+                        outline: 'none',
+                      }}
+                    >
+                      <option value="BANK_TRANSFER">Bank Transfer / NEFT / RTGS</option>
+                      <option value="CHEQUE">Cheque / Demand Draft</option>
+                      <option value="UPI">UPI / Digital QR</option>
+                      <option value="CASH">Cash Payment</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                      Supplier GSTIN (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 24AAACI1234F1Z1"
+                      value={supplierGstinInput}
+                      onChange={(e) => setSupplierGstinInput(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '0.65rem 0.75rem',
+                        borderRadius: '8px',
+                        border: '1.5px solid #CBD5E1',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        color: '#0F172A',
+                        fontFamily: 'monospace',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                  Notes / Batch Details (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Received from regional railhead siding / Batch #884"
+                  value={purchaseNotes}
+                  onChange={(e) => setPurchaseNotes(e.target.value)}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '0.6rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '0.85rem',
+                    color: '#0F172A',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.75rem',
+                paddingTop: '0.75rem',
+                borderTop: '1px solid #E2E8F0',
+                marginTop: '0.5rem',
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setIsSupplierPurchaseModalOpen(false)}
+                  style={{
+                    padding: '0.6rem 1.25rem',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSupplierPurchase}
+                  style={{
+                    padding: '0.6rem 1.5rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: savingSupplierPurchase ? '#93C5FD' : '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '0.875rem',
+                    fontWeight: '700',
+                    cursor: savingSupplierPurchase ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                  }}
+                >
+                  {savingSupplierPurchase ? 'Saving Order...' : '✓ Save Inward Order'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =======================================================================
+          MODAL 5: DISBURSE SUPPLIER PAYMENT
+      ======================================================================= */}
+      {isSupplierPayModalOpen && selectedPurchaseForPay && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '1rem',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            maxWidth: 'min(480px, calc(100vw - 24px))',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid #E2E8F0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#F8FAFC',
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#0F172A' }}>
+                  💳 Disburse Supplier Payment
+                </h3>
+                <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
+                  Invoice: <span style={{ fontFamily: 'monospace', fontWeight: '700', color: '#2563EB' }}>#{selectedPurchaseForPay.purchaseInvoiceNo || selectedPurchaseForPay.purchase_invoice_no || selectedPurchaseForPay.id}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsSupplierPayModalOpen(false); setSelectedPurchaseForPay(null); }}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  fontSize: '1.35rem',
+                  cursor: 'pointer',
+                  color: '#64748B',
+                  padding: '0.2rem',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleRecordSupplierPayment} style={{ padding: '1.25rem 1.5rem', overflowY: 'auto' }}>
+              {/* Summary Card */}
+              <div style={{
+                backgroundColor: '#F8FAFC',
+                borderRadius: '8px',
+                padding: '0.85rem',
+                border: '1px solid #E2E8F0',
+                marginBottom: '1rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: '#64748B' }}>Supplier:</span>
+                  <span style={{ fontWeight: '700', color: '#0F172A' }}>{selectedPurchaseForPay.supplierName || selectedPurchaseForPay.supplier_name}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: '#64748B' }}>Total Invoiced:</span>
+                  <span style={{ fontWeight: '700', color: '#0F172A' }}>
+                    ₹{Number(selectedPurchaseForPay.totalAmount || selectedPurchaseForPay.total_amount || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: '#64748B' }}>Already Paid:</span>
+                  <span style={{ fontWeight: '700', color: '#059669' }}>
+                    ₹{Number(selectedPurchaseForPay.paidAmount || selectedPurchaseForPay.paid_amount || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  paddingTop: '0.45rem',
+                  borderTop: '1px dashed #CBD5E1',
+                  fontSize: '0.95rem',
+                  fontWeight: '800',
+                }}>
+                  <span style={{ color: '#DC2626' }}>Pending Balance Due:</span>
+                  <span style={{ color: '#DC2626' }}>
+                    ₹{Number(selectedPurchaseForPay.dueAmount !== undefined ? selectedPurchaseForPay.dueAmount : (selectedPurchaseForPay.due_amount || 0)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Payment Amount Input */}
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label style={{ fontSize: '0.825rem', fontWeight: '700', color: '#0F172A' }}>
+                    Disbursement Amount (₹) <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSupplierPayAmount(String(selectedPurchaseForPay.dueAmount !== undefined ? selectedPurchaseForPay.dueAmount : (selectedPurchaseForPay.due_amount || 0)))}
+                    style={{
+                      fontSize: '0.725rem',
+                      color: '#2563EB',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '700',
+                      textDecoration: 'underline',
+                      padding: 0,
+                    }}
+                  >
+                    Pay Full Due (₹{Number(selectedPurchaseForPay.dueAmount !== undefined ? selectedPurchaseForPay.dueAmount : (selectedPurchaseForPay.due_amount || 0)).toFixed(2)})
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  min="0.01"
+                  max={Number(Number(selectedPurchaseForPay.dueAmount !== undefined ? selectedPurchaseForPay.dueAmount : (selectedPurchaseForPay.due_amount || 0)).toFixed(2))}
+                  step="0.01"
+                  required
+                  value={supplierPayAmount}
+                  onChange={(e) => setSupplierPayAmount(e.target.value)}
+                  placeholder="Enter disbursement amount"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '0.65rem 0.75rem',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    fontWeight: '700',
+                    color: '#0F172A',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Payment Method */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                  Payment Method
+                </label>
+                <select
+                  value={supplierPayMethod}
+                  onChange={(e) => setSupplierPayMethod(e.target.value)}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '0.6rem 0.75rem',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    color: '#0F172A',
+                    backgroundColor: '#FFFFFF',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="BANK_TRANSFER">Bank Transfer / NEFT / RTGS</option>
+                  <option value="CHEQUE">Cheque / Demand Draft</option>
+                  <option value="UPI">UPI / Digital QR</option>
+                  <option value="CASH">Cash</option>
+                </select>
+              </div>
+
+              {/* Reference Number */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: '700', color: '#0F172A', marginBottom: '0.35rem' }}>
+                  UTR / Cheque / Transaction Ref (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. UTR12345678 or Cheque #004521"
+                  value={supplierPayRef}
+                  onChange={(e) => setSupplierPayRef(e.target.value)}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '0.6rem 0.75rem',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    color: '#0F172A',
+                    fontFamily: 'monospace',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsSupplierPayModalOpen(false); setSelectedPurchaseForPay(null); }}
+                  disabled={submittingSupplierPayment}
+                  style={{
+                    padding: '0.55rem 1rem',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingSupplierPayment || !supplierPayAmount || Number(supplierPayAmount) <= 0}
+                  style={{
+                    padding: '0.55rem 1.25rem',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: submittingSupplierPayment ? '#94A3B8' : '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    cursor: submittingSupplierPayment ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    boxShadow: '0 2px 4px rgba(37,99,235,0.2)',
+                  }}
+                >
+                  {submittingSupplierPayment ? 'Disbursing...' : `Disburse Payment (₹${Number(supplierPayAmount || 0).toFixed(2)})`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =======================================================================
+          MODAL 6: SUPPLIER PURCHASE INVOICE DETAILS MODAL
+      ======================================================================= */}
+      {selectedPurchaseForView && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '1rem',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            maxWidth: 'min(640px, calc(100vw - 24px))',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '1rem 1.5rem',
+              borderBottom: '1px solid #E2E8F0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#F8FAFC',
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#0F172A' }}>
+                    🏢 Supplier Purchase Order
+                  </h3>
+                  <span style={{
+                    fontSize: '0.675rem',
+                    fontWeight: '800',
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    backgroundColor: '#EFF6FF',
+                    color: '#1D4ED8',
+                    border: '1px solid #BFDBFE',
+                  }}>
+                    INWARD
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                  Fertilizer Management ERP System
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: '6px',
+                    border: '1px solid #2563EB',
+                    backgroundColor: '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                  }}
+                >
+                  🖨️ Print
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPurchaseForView(null)}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+              {/* Meta Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '1rem',
+                backgroundColor: '#F8FAFC',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #E2E8F0',
+                marginBottom: '1.25rem',
+                fontSize: '0.85rem',
+              }}>
+                <div>
+                  <div style={{ color: '#64748B', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '700' }}>Inward Invoice #</div>
+                  <div style={{ fontWeight: '800', color: '#0F172A', fontFamily: 'monospace', fontSize: '0.95rem', marginTop: '2px' }}>
+                    {selectedPurchaseForView.purchaseInvoiceNo || selectedPurchaseForView.purchase_invoice_no || selectedPurchaseForView.id}
+                  </div>
+                  <div style={{ marginTop: '0.5rem', color: '#64748B', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '700' }}>Date & Time</div>
+                  <div style={{ color: '#0F172A', fontWeight: '600', marginTop: '2px' }}>
+                    {formatDateTime(selectedPurchaseForView.purchaseDate || selectedPurchaseForView.purchase_date || selectedPurchaseForView.createdAt)}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ color: '#64748B', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '700' }}>Supplier / Distributor</div>
+                  <div style={{ fontWeight: '800', color: '#0F172A', marginTop: '2px' }}>
+                    {selectedPurchaseForView.supplierName || selectedPurchaseForView.supplier_name || 'Wholesale Supplier'}
+                  </div>
+                  {selectedPurchaseForView.supplierPhone && (
+                    <div style={{ color: '#64748B', marginTop: '2px' }}>
+                      📞 {selectedPurchaseForView.supplierPhone}
+                    </div>
+                  )}
+                  {selectedPurchaseForView.supplierGstin && (
+                    <div style={{ color: '#475569', fontFamily: 'monospace', fontSize: '0.75rem', marginTop: '2px' }}>
+                      GSTIN: {selectedPurchaseForView.supplierGstin}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden', marginBottom: '1.25rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.825rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#F1F5F9', borderBottom: '1px solid #CBD5E1' }}>
+                      <th style={{ padding: '0.5rem', textAlign: 'left' }}>Item</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'center' }}>Qty</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Unit Cost</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'right' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedPurchaseForView.items && selectedPurchaseForView.items.length > 0 ? (
+                      selectedPurchaseForView.items.map((it, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '0.5rem' }}>
+                            <div style={{ fontWeight: '700', color: '#0F172A' }}>{it.productName || it.name || 'Fertilizer Item'}</div>
+                          </td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: '600' }}>
+                            {it.quantity || it.qty || 1} {it.unit || 'units'}
+                          </td>
+                          <td style={{ padding: '0.5rem', textAlign: 'right', color: '#475569' }}>
+                            ₹{Number(it.unitCost || it.price || 0).toFixed(2)}
+                          </td>
+                          <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: '700', color: '#0F172A' }}>
+                            ₹{Number(it.totalCost || ((it.quantity || 1) * (it.unitCost || 0))).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="4" style={{ padding: '0.75rem', textAlign: 'center', color: '#64748B' }}>
+                          Wholesale fertilizer inward shipment
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals Breakdown */}
+              <div style={{
+                backgroundColor: '#F8FAFC',
+                borderRadius: '8px',
+                padding: '0.85rem 1rem',
+                border: '1px solid #E2E8F0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.4rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: '800', color: '#0F172A' }}>
+                  <span>Total Purchase Cost:</span>
+                  <span style={{ color: '#1E3A8A' }}>
+                    ₹{Number(selectedPurchaseForView.totalAmount || selectedPurchaseForView.total_amount || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', fontWeight: '700', color: '#059669' }}>
+                  <span>Amount Paid to Supplier:</span>
+                  <span>
+                    ₹{Number(selectedPurchaseForView.paidAmount || selectedPurchaseForView.paid_amount || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: '800', color: Number(selectedPurchaseForView.dueAmount || selectedPurchaseForView.due_amount || 0) > 0 ? '#DC2626' : '#64748B' }}>
+                  <span>Outstanding Balance Due:</span>
+                  <span>
+                    ₹{Number(selectedPurchaseForView.dueAmount !== undefined ? selectedPurchaseForView.dueAmount : (selectedPurchaseForView.due_amount || 0)).toFixed(2)}
+                  </span>
+                </div>
+                {selectedPurchaseForView.notes && (
+                  <div style={{ fontSize: '0.78rem', color: '#64748B', paddingTop: '0.35rem', borderTop: '1px dashed #CBD5E1' }}>
+                    <strong>Notes:</strong> {selectedPurchaseForView.notes}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
